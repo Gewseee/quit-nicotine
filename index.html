@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отказ от парения</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; text-align: center; background-color: #f0f0f0; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        button { padding: 10px 20px; margin: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #45a049; }
+        input, select { padding: 8px; margin: 5px; width: 200px; border: 1px solid #ccc; border-radius: 5px; }
+        textarea { width: 100%; height: 100px; margin-top: 10px; border-radius: 5px; }
+        #dailyLimit { font-size: 18px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Помощь в отказе от парения</h1>
+        <div id="start">
+            <p>Что ты бросаешь?</p>
+            <button onclick="showSetup('vaping')">Парить</button>
+            <button onclick="showSetup('smoking')">Курить</button>
+        </div>
+        <div id="setup" style="display: none;">
+            <h2>Настройка</h2>
+            <p>Как часто ты паришь?</p>
+            <select id="frequency">
+                <option value="very-rare">Почти не парю</option>
+                <option value="rare">Редко</option>
+                <option value="sometimes">Иногда</option>
+                <option value="often">Часто</option>
+                <option value="very-often">Очень часто</option>
+            </select>
+            <p>Сколько никотина в твоей жидкости? (мг/мл)</p>
+            <input type="number" id="nicotine" min="0" placeholder="20">
+            <p>Объём жидкости (мл, опционально)</p>
+            <input type="number" id="volume" min="0" placeholder="30">
+            <p>Когда начинаешь бросать?</p>
+            <input type="date" id="startDate">
+            <p>Когда планируешь бросить?</p>
+            <input type="date" id="endDate">
+            <button onclick="generatePlan()">Создать курс</button>
+        </div>
+        <div id="plan" style="display: none;">
+            <h2>Твой курс</h2>
+            <p id="dailyLimit"></p>
+            <button onclick="startSession()">Начать сеанс</button>
+            <p>Прогресс: <span id="progress">0%</span> (День <span id="day">1</span> из <span id="totalDays">61</span>)</p>
+            <p>Экономия: <span id="savings">0 руб.</span></p>
+            <textarea id="diary" placeholder="Запиши свои мысли..."></textarea>
+            <button onclick="resetPlan()">Начать заново</button>
+        </div>
+    </div>
+
+    <script>
+        let plan = {};
+        let currentDay = 1;
+
+        function showSetup(type) {
+            document.getElementById('start').style.display = 'none';
+            document.getElementById('setup').style.display = 'block';
+            localStorage.setItem('type', type);
+        }
+
+        function generatePlan() {
+            const frequency = document.getElementById('frequency').value;
+            const nicotine = parseInt(document.getElementById('nicotine').value) || 20;
+            const volume = parseInt(document.getElementById('volume').value) || 30;
+            const startDate = new Date(document.getElementById('startDate').value);
+            const endDate = new Date(document.getElementById('endDate').value);
+            const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+            if (totalDays < 1) {
+                alert("Дата окончания должна быть позже даты начала!");
+                return;
+            }
+
+            let baseInterval;
+            switch (frequency) {
+                case 'very-rare': baseInterval = 45; break; // 1-2 сеанса/час
+                case 'rare': baseInterval = 25; break; // 2-3 сеанса/час
+                case 'sometimes': baseInterval = 12; break; // 4-6 сеансов/час
+                case 'often': baseInterval = 8; break; // 6-8 сеансов/час
+                case 'very-often': baseInterval = 6; break; // 9-12 сеансов/час
+            }
+
+            const endInterval = 960; // 16 часов (1 сеанс/день)
+            const step = (endInterval - baseInterval) / totalDays;
+            plan = { startDate, endDate, totalDays, baseInterval, step, nicotine, volume };
+            currentDay = 1;
+            updatePlan();
+            saveToCookies();
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('plan').style.display = 'block';
+        }
+
+        function updatePlan() {
+            const today = new Date();
+            const daysSinceStart = Math.floor((today - plan.startDate) / (1000 * 60 * 60 * 24)) + 1;
+            currentDay = Math.min(daysSinceStart, plan.totalDays);
+            const progress = (currentDay / plan.totalDays) * 100;
+            const interval = plan.baseInterval + (plan.step * (currentDay - 1));
+            const randomFactor = 1 + (Math.random() - 0.5) * 0.2; // ±10%
+            const dailyInterval = Math.max(5, Math.round(interval * randomFactor));
+            const sessionTime = Math.max(5, 30 - Math.round((currentDay / plan.totalDays) * 25));
+            document.getElementById('dailyLimit').textContent = `Сегодня кури раз в ${dailyInterval} минут, сеанс ${sessionTime} секунд`;
+            document.getElementById('progress').textContent = progress.toFixed(1) + '%';
+            document.getElementById('day').textContent = currentDay;
+            document.getElementById('totalDays').textContent = plan.totalDays;
+            document.getElementById('savings').textContent = ((plan.volume / plan.totalDays) * 50 * currentDay).toFixed(0) + ' руб.';
+            saveToCookies();
+        }
+
+        function startSession() {
+            const sessionTime = parseInt(document.getElementById('dailyLimit').textContent.split(' ')[5]);
+            alert(`Сеанс начался! Остановись через ${sessionTime} секунд.`);
+            // Таймер можно добавить позже
+        }
+
+        function resetPlan() {
+            document.getElementById('plan').style.display = 'none';
+            document.getElementById('start').style.display = 'block';
+            document.cookie = "plan=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+            document.cookie = "currentDay=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+            document.cookie = "diary=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+        }
+
+        // Сохранение в куки
+        function saveToCookies() {
+            document.cookie = `plan=${JSON.stringify(plan)}; path=/`;
+            document.cookie = `currentDay=${currentDay}; path=/`;
+            document.cookie = `diary=${document.getElementById('diary').value}; path=/`;
+        }
+
+        // Загрузка из куки
+        window.onload = function() {
+            const cookies = document.cookie.split('; ').reduce((acc, cookie) => {
+                const [name, value] = cookie.split('=');
+                acc[name] = value;
+                return acc;
+            }, {});
+            if (cookies.plan) {
+                plan = JSON.parse(cookies.plan);
+                currentDay = parseInt(cookies.currentDay) || 1;
+                document.getElementById('diary').value = cookies.diary || '';
+                document.getElementById('start').style.display = 'none';
+                document.getElementById('plan').style.display = 'block';
+                updatePlan();
+            }
+        };
+
+        // Обновление каждый день
+        setInterval(() => {
+            updatePlan();
+        }, 1000 * 60 * 60 * 24); // Раз в 24 часа
+    </script>
+</body>
+</html>
