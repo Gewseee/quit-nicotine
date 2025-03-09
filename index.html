@@ -30,40 +30,34 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
         const KEY = 'X7k9P2mQ8jL5vR4tY3zW6bH1nJ4kQ9';
-        const TOKEN = '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'; // Вставь свой токен
+        const TOKEN = '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'; // Вставь токен
         const API_URL = 'https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json';
 
         async function fetchUsers() {
-            try {
-                let response = await fetch('https://raw.githubusercontent.com/Gewseee/quit-nicotine/main/users.json');
-                let users = await response.json();
-                let decrypted = {};
-                for (let k in users) decrypted[CryptoJS.AES.decrypt(k, KEY).toString(CryptoJS.enc.Utf8)] = true;
-                return decrypted;
-            } catch { return {}; }
+            let r = await fetch('https://raw.githubusercontent.com/Gewseee/quit-nicotine/main/users.json');
+            let u = await r.json();
+            let d = {};
+            for (let k in u) d[CryptoJS.AES.decrypt(k, KEY).toString(CryptoJS.enc.Utf8)] = true;
+            return d;
         }
 
-        async function saveUsers(users) {
-            let encrypted = {};
-            for (let k in users) encrypted[CryptoJS.AES.encrypt(k, KEY).toString()] = true;
-            let content = btoa(JSON.stringify(encrypted));
-            let data = await fetch(API_URL, { headers: { 'Authorization': `token ${TOKEN}` } }).then(r => r.json());
-            await fetch(API_URL, {
-                method: 'PUT',
-                headers: { 'Authorization': `token ${TOKEN}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: 'Update users', content, sha: data.sha })
-            });
+        async function saveUsers(u) {
+            let e = {};
+            for (let k in u) e[CryptoJS.AES.encrypt(k, KEY).toString()] = true;
+            let c = btoa(JSON.stringify(e));
+            let d = await fetch(API_URL, { headers: { 'Authorization': `token ${TOKEN}` } }).then(r => r.json());
+            await fetch(API_URL, { method: 'PUT', headers: { 'Authorization': `token ${TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Update', content: c, sha: d.sha }) });
         }
 
         async function register() {
             let u = document.getElementById('username').value;
             let p = document.getElementById('password').value;
             if (!u || !p) return alert('Введите ник и пароль!');
-            let users = await fetchUsers();
-            let key = u + ':' + p;
-            if (users[key]) return alert('Аккаунт есть!');
-            users[key] = true;
-            await saveUsers(users);
+            let us = await fetchUsers();
+            let k = u + ':' + p;
+            if (us[k]) return alert('Аккаунт есть!');
+            us[k] = true;
+            await saveUsers(us);
             alert('Зарегистрирован!');
         }
 
@@ -71,10 +65,10 @@
             let u = document.getElementById('username').value;
             let p = document.getElementById('password').value;
             if (!u || !p) return alert('Введите ник и пароль!');
-            let users = await fetchUsers();
-            let key = u + ':' + p;
-            if (users[key]) {
-                localStorage.setItem('currentUser', key);
+            let us = await fetchUsers();
+            let k = u + ':' + p;
+            if (us[k]) {
+                localStorage.setItem('currentUser', k);
                 document.getElementById('auth').style.display = 'none';
                 document.getElementById('start').style.display = 'block';
             } else alert('Неверно!');
