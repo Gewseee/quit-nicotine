@@ -29,9 +29,8 @@
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
-        const KEY = 'X7k9P2mQ8jL5vR4tY3zW6bH1nJ4kQ9';
-        const TOKEN = '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'; // Вставь токен
-        const API_URL = 'https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json';
+        const KEY = 'myFixedKey123';
+        const TOKEN = ''; // Токен не нужен
 
         async function fetchUsers() {
             let r = await fetch('https://raw.githubusercontent.com/Gewseee/quit-nicotine/main/users.json');
@@ -45,8 +44,18 @@
             let e = {};
             for (let k in u) e[CryptoJS.AES.encrypt(k, KEY).toString()] = true;
             let c = btoa(JSON.stringify(e));
-            let d = await fetch(API_URL, { headers: { 'Authorization': `token ${TOKEN}` } }).then(r => r.json());
-            await fetch(API_URL, { method: 'PUT', headers: { 'Authorization': `token ${TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Update', content: c, sha: d.sha }) });
+            let d = await fetch('https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json', {
+                method: 'PUT',
+                headers: { 'Authorization': `token ${TOKEN}` },
+                body: JSON.stringify({ message: 'Update users', content: c, sha: (await fetch('https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json').then(r => r.json())).sha })
+            });
+            // Замени на пуш с сообщением
+            let commitMsg = prompt('Введите ник:пароль для регистрации (например, user1:pass1)');
+            await fetch('https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json', {
+                method: 'PUT',
+                headers: { 'Authorization': `token ${TOKEN}` },
+                body: JSON.stringify({ message: commitMsg, content: c, sha: (await fetch('https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json').then(r => r.json())).sha })
+            });
         }
 
         async function register() {
