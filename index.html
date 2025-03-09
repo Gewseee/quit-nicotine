@@ -30,7 +30,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
         const KEY = 'myFixedKey123';
-        const TOKEN = ''; // Токен не нужен
 
         async function fetchUsers() {
             let r = await fetch('https://raw.githubusercontent.com/Gewseee/quit-nicotine/main/users.json');
@@ -41,21 +40,10 @@
         }
 
         async function saveUsers(u) {
-            let e = {};
-            for (let k in u) e[CryptoJS.AES.encrypt(k, KEY).toString()] = true;
-            let c = btoa(JSON.stringify(e));
-            let d = await fetch('https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json', {
-                method: 'PUT',
-                headers: { 'Authorization': `token ${TOKEN}` },
-                body: JSON.stringify({ message: 'Update users', content: c, sha: (await fetch('https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json').then(r => r.json())).sha })
-            });
-            // Замени на пуш с сообщением
+            // Имитация пуша через GitHub Actions
             let commitMsg = prompt('Введите ник:пароль для регистрации (например, user1:pass1)');
-            await fetch('https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json', {
-                method: 'PUT',
-                headers: { 'Authorization': `token ${TOKEN}` },
-                body: JSON.stringify({ message: commitMsg, content: c, sha: (await fetch('https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json').then(r => r.json())).sha })
-            });
+            alert('Теперь сделайте коммит с сообщением: ' + commitMsg);
+            // Реальное обновление произойдёт через GitHub Actions
         }
 
         async function register() {
@@ -67,7 +55,7 @@
             if (us[k]) return alert('Аккаунт есть!');
             us[k] = true;
             await saveUsers(us);
-            alert('Зарегистрирован!');
+            alert('Зарегистрирован! Сделайте коммит.');
         }
 
         async function login() {
