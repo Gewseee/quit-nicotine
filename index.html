@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Отказ от парения</title>
+    <title>Отказ от никотина</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; text-align: center; background-color: #f0f0f0; }
         .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
@@ -16,8 +16,17 @@
 </head>
 <body>
     <div class="container">
-        <h1>Помощь в отказе от парения</h1>
-        <div id="start">
+        <h1>Помощь в отказе от никотина</h1>
+        <div id="auth" style="display: block;">
+            <h2>Авторизация</h2>
+            <p>Введите ник:</p>
+            <input type="text" id="username" placeholder="Ваш ник">
+            <p>Введите пароль:</p>
+            <input type="password" id="password" placeholder="Пароль">
+            <button onclick="login()">Войти</button>
+            <button onclick="register()">Зарегистрироваться</button>
+        </div>
+        <div id="start" style="display: none;">
             <p>Что ты бросаешь?</p>
             <button onclick="showSetup('vaping')">Парить</button>
             <button onclick="showSetup('smoking')">Курить</button>
@@ -53,11 +62,60 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
         let plan = {};
         let currentDay = 1;
+        const encryptionKey = 'X7k9P2mQ8jL5vR4tY3zW6bH1nJ4kQ9'; // Замени на СВОЙ уникальный ключ!
+        let users = JSON.parse(localStorage.getItem('users')) || {};
+
+        function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            if (!username || !password) {
+                alert('Введите ник и пароль!');
+                return;
+            }
+            if (users[username]) {
+                alert('Такой пользователь уже существует!');
+                return;
+            }
+            const encryptedPassword = CryptoJS.AES.encrypt(password, encryptionKey).toString();
+            users[username] = { password: encryptedPassword, plan: null, currentDay: 1, diary: '' };
+            localStorage.setItem('users', JSON.stringify(users));
+            alert('Аккаунт создан! Теперь войдите.');
+        }
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            if (!users[username] || CryptoJS.AES.decrypt(users[username].password, encryptionKey).toString(CryptoJS.enc.Utf8) !== password) {
+                alert('Неверный ник или пароль!');
+                return;
+            }
+            localStorage.setItem('currentUser', username);
+            loadUserData();
+            document.getElementById('auth').style.display = 'none';
+            document.getElementById('start').style.display = 'block';
+        }
+
+        function loadUserData() {
+            const username = localStorage.getItem('currentUser');
+            if (username && users[username].plan) {
+                plan = users[username].plan;
+                currentDay = users[username].currentDay;
+                document.getElementById('diary').value = users[username].diary || '';
+                document.getElementById('start').style.display = 'none';
+                document.getElementById('plan').style.display = 'block';
+                updatePlan();
+            }
+        }
 
         function showSetup(type) {
+            if (type === 'smoking') {
+                alert('Функционал для бросания курения пока в разработке. Выберите "Парить".');
+                return;
+            }
             document.getElementById('start').style.display = 'none';
             document.getElementById('setup').style.display = 'block';
             localStorage.setItem('type', type);
@@ -78,19 +136,19 @@
 
             let baseInterval;
             switch (frequency) {
-                case 'very-rare': baseInterval = 45; break; // 1-2 сеанса/час
-                case 'rare': baseInterval = 25; break; // 2-3 сеанса/час
-                case 'sometimes': baseInterval = 12; break; // 4-6 сеансов/час
-                case 'often': baseInterval = 8; break; // 6-8 сеансов/час
-                case 'very-often': baseInterval = 6; break; // 9-12 сеансов/час
+                case 'very-rare': baseInterval = 45; break;
+                case 'rare': baseInterval = 25; break;
+                case 'sometimes': baseInterval = 12; break;
+                case 'often': baseInterval = 8; break;
+                case 'very-often': baseInterval = 6; break;
             }
 
-            const endInterval = 960; // 16 часов (1 сеанс/день)
+            const endInterval = 960;
             const step = (endInterval - baseInterval) / totalDays;
             plan = { startDate, endDate, totalDays, baseInterval, step, nicotine, volume };
             currentDay = 1;
             updatePlan();
-            saveToCookies();
+            saveUserData();
             document.getElementById('setup').style.display = 'none';
             document.getElementById('plan').style.display = 'block';
         }
@@ -101,7 +159,7 @@
             currentDay = Math.min(daysSinceStart, plan.totalDays);
             const progress = (currentDay / plan.totalDays) * 100;
             const interval = plan.baseInterval + (plan.step * (currentDay - 1));
-            const randomFactor = 1 + (Math.random() - 0.5) * 0.2; // ±10%
+            const randomFactor = 1 + (Math.random() - 0.5) * 0.2;
             const dailyInterval = Math.max(5, Math.round(interval * randomFactor));
             const sessionTime = Math.max(5, 30 - Math.round((currentDay / plan.totalDays) * 25));
             document.getElementById('dailyLimit').textContent = `Сегодня кури раз в ${dailyInterval} минут, сеанс ${sessionTime} секунд`;
@@ -109,51 +167,38 @@
             document.getElementById('day').textContent = currentDay;
             document.getElementById('totalDays').textContent = plan.totalDays;
             document.getElementById('savings').textContent = ((plan.volume / plan.totalDays) * 50 * currentDay).toFixed(0) + ' руб.';
-            saveToCookies();
+            saveUserData();
         }
 
         function startSession() {
             const sessionTime = parseInt(document.getElementById('dailyLimit').textContent.split(' ')[5]);
             alert(`Сеанс начался! Остановись через ${sessionTime} секунд.`);
-            // Таймер можно добавить позже
         }
 
         function resetPlan() {
             document.getElementById('plan').style.display = 'none';
             document.getElementById('start').style.display = 'block';
-            document.cookie = "plan=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-            document.cookie = "currentDay=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-            document.cookie = "diary=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+            const username = localStorage.getItem('currentUser');
+            users[username].plan = null;
+            users[username].currentDay = 1;
+            users[username].diary = '';
+            localStorage.setItem('users', JSON.stringify(users));
         }
 
-        // Сохранение в куки
-        function saveToCookies() {
-            document.cookie = `plan=${JSON.stringify(plan)}; path=/`;
-            document.cookie = `currentDay=${currentDay}; path=/`;
-            document.cookie = `diary=${document.getElementById('diary').value}; path=/`;
+        function saveUserData() {
+            const username = localStorage.getItem('currentUser');
+            users[username].plan = plan;
+            users[username].currentDay = currentDay;
+            users[username].diary = document.getElementById('diary').value;
+            localStorage.setItem('users', JSON.stringify(users));
         }
 
-        // Загрузка из куки
         window.onload = function() {
-            const cookies = document.cookie.split('; ').reduce((acc, cookie) => {
-                const [name, value] = cookie.split('=');
-                acc[name] = value;
-                return acc;
-            }, {});
-            if (cookies.plan) {
-                plan = JSON.parse(cookies.plan);
-                currentDay = parseInt(cookies.currentDay) || 1;
-                document.getElementById('diary').value = cookies.diary || '';
-                document.getElementById('start').style.display = 'none';
-                document.getElementById('plan').style.display = 'block';
-                updatePlan();
+            const currentUser = localStorage.getItem('currentUser');
+            if (currentUser && users[currentUser]) {
+                loadUserData();
             }
         };
-
-        // Обновление каждый день
-        setInterval(() => {
-            updatePlan();
-        }, 1000 * 60 * 60 * 24); // Раз в 24 часа
     </script>
 </body>
 </html>
