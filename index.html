@@ -30,21 +30,47 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
         const KEY = 'myFixedKey123'; // Фиксированный ключ
+        const TOKEN = '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'; // Твой токен
         const REPO_URL = 'https://raw.githubusercontent.com/Gewseee/quit-nicotine/main/users.json';
+        const API_URL = 'https://api.github.com/repos/Gewseee/quit-nicotine/contents/users.json';
 
         async function fetchUsers() {
             try {
                 let response = await fetch(REPO_URL);
                 let users = await response.json();
+                let decryptedUsers = {};
                 for (let userKey in users) {
                     let decrypted = CryptoJS.AES.decrypt(userKey, KEY).toString(CryptoJS.enc.Utf8);
-                    users[decrypted] = true;
-                    delete users[userKey];
+                    decryptedUsers[decrypted] = true;
                 }
-                return users;
+                return decryptedUsers;
             } catch (e) {
                 return {};
             }
+        }
+
+        async function saveUsers(users) {
+            let encryptedUsers = {};
+            for (let key in users) {
+                encryptedUsers[CryptoJS.AES.encrypt(key, KEY).toString()] = true;
+            }
+            let content = btoa(unescape(encodeURIComponent(JSON.stringify(encryptedUsers))));
+            let existingSha = await fetch(API_URL, {
+                headers: { 'Authorization': `token ${TOKEN}` }
+            }).then(res => res.json()).then(data => data.sha);
+
+            await fetch(API_URL, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `token ${TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: 'Update users.json',
+                    content: content,
+                    sha: existingSha
+                })
+            });
         }
 
         async function register() {
@@ -55,11 +81,7 @@
             let userKey = username + ':' + password;
             if (users[userKey]) return alert('Такой аккаунт есть!');
             users[userKey] = true;
-            let encryptedUsers = {};
-            for (let key in users) {
-                encryptedUsers[CryptoJS.AES.encrypt(key, KEY).toString()] = true;
-            }
-            console.log('Сохранение:', encryptedUsers); // Для записи нужен GitHub API
+            await saveUsers(users);
             alert('Зарегистрирован!');
         }
 
