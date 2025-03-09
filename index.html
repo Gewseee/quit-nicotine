@@ -5,200 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Отказ от никотина</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; text-align: center; background-color: #f0f0f0; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        button { padding: 10px 20px; margin: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        button:hover { background-color: #45a049; }
-        input, select { padding: 8px; margin: 5px; width: 200px; border: 1px solid #ccc; border-radius: 5px; }
-        textarea { width: 100%; height: 100px; margin-top: 10px; border-radius: 5px; }
-        #dailyLimit { font-size: 18px; font-weight: bold; }
+        body { font-family: Arial, sans-serif; margin: 20px; text-align: center; }
+        .container { max-width: 600px; margin: auto; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Помощь в отказе от никотина</h1>
-        <div id="auth" style="display: block;">
-            <h2>Авторизация</h2>
-            <p>Введите ник:</p>
-            <input type="text" id="username" placeholder="Ваш ник">
-            <p>Введите пароль:</p>
-            <input type="password" id="password" placeholder="Пароль">
-            <button onclick="login()">Войти</button>
-            <button onclick="register()">Зарегистрироваться</button>
-        </div>
-        <div id="start" style="display: none;">
-            <p>Что ты бросаешь?</p>
-            <button onclick="showSetup('vaping')">Парить</button>
-            <button onclick="showSetup('smoking')">Курить</button>
-        </div>
-        <div id="setup" style="display: none;">
-            <h2>Настройка</h2>
-            <p>Как часто ты паришь?</p>
-            <select id="frequency">
-                <option value="very-rare">Почти не парю</option>
-                <option value="rare">Редко</option>
-                <option value="sometimes">Иногда</option>
-                <option value="often">Часто</option>
-                <option value="very-often">Очень часто</option>
-            </select>
-            <p>Сколько никотина в твоей жидкости? (мг/мл)</p>
-            <input type="number" id="nicotine" min="0" placeholder="20">
-            <p>Объём жидкости (мл, опционально)</p>
-            <input type="number" id="volume" min="0" placeholder="30">
-            <p>Когда начинаешь бросать?</p>
-            <input type="date" id="startDate">
-            <p>Когда планируешь бросить?</p>
-            <input type="date" id="endDate">
-            <button onclick="generatePlan()">Создать курс</button>
-        </div>
-        <div id="plan" style="display: none;">
-            <h2>Твой курс</h2>
-            <p id="dailyLimit"></p>
-            <button onclick="startSession()">Начать сеанс</button>
-            <p>Прогресс: <span id="progress">0%</span> (День <span id="day">1</span> из <span id="totalDays">61</span>)</p>
-            <p>Экономия: <span id="savings">0 руб.</span></p>
-            <textarea id="diary" placeholder="Запиши свои мысли..."></textarea>
-            <button onclick="resetPlan()">Начать заново</button>
-        </div>
+        <h1>Отказ от никотина</h1>
+        <p>Что ты бросаешь?</p>
+        <button onclick="showSetup('vaping')">Парить</button>
+        <button onclick="showSetup('smoking')">Курить</button>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
-        let plan = {};
-        let currentDay = 1;
-        const encryptionKey = 'X7k9P2mQ8jL5vR4tY3zW6bH1nJ4kQ9'; // Замени на СВОЙ уникальный ключ!
-        let users = JSON.parse(localStorage.getItem('users')) || {};
-
-        function register() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            if (!username || !password) {
-                alert('Введите ник и пароль!');
-                return;
-            }
-            if (users[username]) {
-                alert('Такой пользователь уже существует!');
-                return;
-            }
-            const encryptedPassword = CryptoJS.AES.encrypt(password, encryptionKey).toString();
-            users[username] = { password: encryptedPassword, plan: null, currentDay: 1, diary: '' };
-            localStorage.setItem('users', JSON.stringify(users));
-            alert('Аккаунт создан! Теперь войдите.');
-        }
-
-        function login() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            if (!users[username] || CryptoJS.AES.decrypt(users[username].password, encryptionKey).toString(CryptoJS.enc.Utf8) !== password) {
-                alert('Неверный ник или пароль!');
-                return;
-            }
-            localStorage.setItem('currentUser', username);
-            loadUserData();
-            document.getElementById('auth').style.display = 'none';
-            document.getElementById('start').style.display = 'block';
-        }
-
-        function loadUserData() {
-            const username = localStorage.getItem('currentUser');
-            if (username && users[username].plan) {
-                plan = users[username].plan;
-                currentDay = users[username].currentDay;
-                document.getElementById('diary').value = users[username].diary || '';
-                document.getElementById('start').style.display = 'none';
-                document.getElementById('plan').style.display = 'block';
-                updatePlan();
-            }
-        }
-
         function showSetup(type) {
-            if (type === 'smoking') {
-                alert('Функционал для бросания курения пока в разработке. Выберите "Парить".');
-                return;
-            }
-            document.getElementById('start').style.display = 'none';
-            document.getElementById('setup').style.display = 'block';
-            localStorage.setItem('type', type);
+            alert(`Вы выбрали ${type === 'vaping' ? 'парить' : 'курить'}. Функционал в разработке.`);
         }
-
-        function generatePlan() {
-            const frequency = document.getElementById('frequency').value;
-            const nicotine = parseInt(document.getElementById('nicotine').value) || 20;
-            const volume = parseInt(document.getElementById('volume').value) || 30;
-            const startDate = new Date(document.getElementById('startDate').value);
-            const endDate = new Date(document.getElementById('endDate').value);
-            const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-
-            if (totalDays < 1) {
-                alert("Дата окончания должна быть позже даты начала!");
-                return;
-            }
-
-            let baseInterval;
-            switch (frequency) {
-                case 'very-rare': baseInterval = 45; break;
-                case 'rare': baseInterval = 25; break;
-                case 'sometimes': baseInterval = 12; break;
-                case 'often': baseInterval = 8; break;
-                case 'very-often': baseInterval = 6; break;
-            }
-
-            const endInterval = 960;
-            const step = (endInterval - baseInterval) / totalDays;
-            plan = { startDate, endDate, totalDays, baseInterval, step, nicotine, volume };
-            currentDay = 1;
-            updatePlan();
-            saveUserData();
-            document.getElementById('setup').style.display = 'none';
-            document.getElementById('plan').style.display = 'block';
-        }
-
-        function updatePlan() {
-            const today = new Date();
-            const daysSinceStart = Math.floor((today - plan.startDate) / (1000 * 60 * 60 * 24)) + 1;
-            currentDay = Math.min(daysSinceStart, plan.totalDays);
-            const progress = (currentDay / plan.totalDays) * 100;
-            const interval = plan.baseInterval + (plan.step * (currentDay - 1));
-            const randomFactor = 1 + (Math.random() - 0.5) * 0.2;
-            const dailyInterval = Math.max(5, Math.round(interval * randomFactor));
-            const sessionTime = Math.max(5, 30 - Math.round((currentDay / plan.totalDays) * 25));
-            document.getElementById('dailyLimit').textContent = `Сегодня кури раз в ${dailyInterval} минут, сеанс ${sessionTime} секунд`;
-            document.getElementById('progress').textContent = progress.toFixed(1) + '%';
-            document.getElementById('day').textContent = currentDay;
-            document.getElementById('totalDays').textContent = plan.totalDays;
-            document.getElementById('savings').textContent = ((plan.volume / plan.totalDays) * 50 * currentDay).toFixed(0) + ' руб.';
-            saveUserData();
-        }
-
-        function startSession() {
-            const sessionTime = parseInt(document.getElementById('dailyLimit').textContent.split(' ')[5]);
-            alert(`Сеанс начался! Остановись через ${sessionTime} секунд.`);
-        }
-
-        function resetPlan() {
-            document.getElementById('plan').style.display = 'none';
-            document.getElementById('start').style.display = 'block';
-            const username = localStorage.getItem('currentUser');
-            users[username].plan = null;
-            users[username].currentDay = 1;
-            users[username].diary = '';
-            localStorage.setItem('users', JSON.stringify(users));
-        }
-
-        function saveUserData() {
-            const username = localStorage.getItem('currentUser');
-            users[username].plan = plan;
-            users[username].currentDay = currentDay;
-            users[username].diary = document.getElementById('diary').value;
-            localStorage.setItem('users', JSON.stringify(users));
-        }
-
-        window.onload = function() {
-            const currentUser = localStorage.getItem('currentUser');
-            if (currentUser && users[currentUser]) {
-                loadUserData();
-            }
-        };
     </script>
 </body>
 </html>
