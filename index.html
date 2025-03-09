@@ -8,14 +8,73 @@
         body { font-family: Arial, sans-serif; margin: 20px; text-align: center; }
         .container { max-width: 600px; margin: auto; padding: 20px; }
         button { padding: 10px 20px; margin: 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        input { padding: 8px; margin: 5px; width: 200px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Отказ от никотина</h1>
-        <p>Что ты бросаешь?</p>
-        <button>Парить</button>
-        <button>Курить</button>
+        <div id="auth" style="display: block;">
+            <h2>Авторизация</h2>
+            <input type="text" id="username" placeholder="Ник">
+            <input type="password" id="password" placeholder="Пароль">
+            <button onclick="login()">Войти</button>
+            <button onclick="register()">Зарегистрироваться</button>
+        </div>
+        <div id="start" style="display: none;">
+            <p>Что ты бросаешь?</p>
+            <button onclick="alert('Парить')">Парить</button>
+            <button onclick="alert('Курить')">Курить</button>
+        </div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script>
+        const KEY = 'myFixedKey123'; // Фиксированный ключ
+        const REPO_URL = 'https://raw.githubusercontent.com/Gewseee/quit-nicotine/main/users.json';
+
+        async function fetchUsers() {
+            try {
+                let response = await fetch(REPO_URL);
+                let users = await response.json();
+                for (let userKey in users) {
+                    let decrypted = CryptoJS.AES.decrypt(userKey, KEY).toString(CryptoJS.enc.Utf8);
+                    users[decrypted] = true;
+                    delete users[userKey];
+                }
+                return users;
+            } catch (e) {
+                return {};
+            }
+        }
+
+        async function register() {
+            let username = document.getElementById('username').value;
+            let password = document.getElementById('password').value;
+            if (!username || !password) return alert('Введите ник и пароль!');
+            let users = await fetchUsers();
+            let userKey = username + ':' + password;
+            if (users[userKey]) return alert('Такой аккаунт есть!');
+            users[userKey] = true;
+            let encryptedUsers = {};
+            for (let key in users) {
+                encryptedUsers[CryptoJS.AES.encrypt(key, KEY).toString()] = true;
+            }
+            console.log('Сохранение:', encryptedUsers); // Для записи нужен GitHub API
+            alert('Зарегистрирован!');
+        }
+
+        async function login() {
+            let username = document.getElementById('username').value;
+            let password = document.getElementById('password').value;
+            if (!username || !password) return alert('Введите ник и пароль!');
+            let users = await fetchUsers();
+            let userKey = username + ':' + password;
+            if (users[userKey]) {
+                localStorage.setItem('currentUser', userKey);
+                document.getElementById('auth').style.display = 'none';
+                document.getElementById('start').style.display = 'block';
+            } else alert('Неверный ник или пароль!');
+        }
+    </script>
 </body>
 </html>
