@@ -1,0 +1,24 @@
+# Файл: .github/workflows/update.yml
+name: Update Users
+on:
+  push:
+    branches:
+      - main
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Update users.json
+      run: |
+        echo "{" > users.json
+        echo "\"$(echo -n $INPUT_USER | base64)\": true" >> users.json
+        echo "}" >> users.json
+      env:
+        INPUT_USER: ${{ github.event.head_commit.message }}
+    - name: Commit changes
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: Update users.json
+        file_pattern: users.json
