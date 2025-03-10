@@ -1,4 +1,4 @@
-const API_KEY = 'твой_api_key_от_jsonbin_io'; // Вставь сюда свой ключ из шага 2
+const API_KEY = '$2a$10$x64cmBVcoKyTf.0mDg7lJePkx.fG5KXYzOGshiFyICAzw9nvEKYla'; // Вставь сюда свой ключ из шага 2
 const BASE_URL = 'https://api.jsonbin.io/v3/b';
 
 async function login() {
