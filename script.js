@@ -1,4 +1,4 @@
-const API_KEY = '$2a$10$x64cmBVcoKyTf.0mDg7lJePkx.fG5KXYzOGshiFyICAzw9nvEKYla'; // Вставь сюда свой ключ из шага 2
+const API_KEY = '$2a$10$x64cmBVcoKyTf.0mDg7lJePkx.fG5KXYzOGshiFyICAzw9nvEKYla'; // Твой ключ
 const BASE_URL = 'https://api.jsonbin.io/v3/b';
 
 async function login() {
@@ -14,11 +14,16 @@ async function login() {
 
         if (binId) {
             const response = await fetch(`${BASE_URL}/${binId}/latest`, {
-                headers: { 'X-Master-Key': API_KEY }
+                method: 'GET',
+                headers: {
+                    'X-Master-Key': API_KEY
+                }
             });
             if (response.ok) {
                 const data = await response.json();
                 days = data.record.days || 0;
+            } else {
+                throw new Error('Не удалось загрузить данные: ' + response.status);
             }
         } else {
             const response = await fetch(BASE_URL, {
@@ -30,9 +35,13 @@ async function login() {
                 },
                 body: JSON.stringify({ days: 0 })
             });
-            const data = await response.json();
-            binId = data.metadata.id;
-            localStorage.setItem(`bin_${code}`, binId);
+            if (response.ok) {
+                const data = await response.json();
+                binId = data.metadata.id;
+                localStorage.setItem(`bin_${code}`, binId);
+            } else {
+                throw new Error('Не удалось создать bin: ' + response.status);
+            }
         }
 
         document.getElementById('login-section').classList.add('hidden');
@@ -41,7 +50,8 @@ async function login() {
         document.getElementById('current-code').textContent = code;
         localStorage.setItem('syncCode', code);
     } catch (error) {
-        alert('Ошибка: ' + error.message);
+        console.error('Ошибка:', error);
+        alert('Что-то пошло не так: ' + error.message);
     }
 }
 
@@ -53,7 +63,7 @@ async function addDay() {
     days += 1;
 
     try {
-        await fetch(`${BASE_URL}/${binId}`, {
+        const response = await fetch(`${BASE_URL}/${binId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -61,7 +71,11 @@ async function addDay() {
             },
             body: JSON.stringify({ days: days })
         });
-        document.getElementById('days').textContent = days;
+        if (response.ok) {
+            document.getElementById('days').textContent = days;
+        } else {
+            throw new Error('Не удалось обновить данные: ' + response.status);
+        }
     } catch (error) {
         alert('Ошибка при обновлении: ' + error.message);
     }
@@ -72,7 +86,7 @@ async function resetDays() {
     const binId = localStorage.getItem(`bin_${code}`);
 
     try {
-        await fetch(`${BASE_URL}/${binId}`, {
+        const response = await fetch(`${BASE_URL}/${binId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -80,7 +94,11 @@ async function resetDays() {
             },
             body: JSON.stringify({ days: 0 })
         });
-        document.getElementById('days').textContent = 0;
+        if (response.ok) {
+            document.getElementById('days').textContent = 0;
+        } else {
+            throw new Error('Не удалось сбросить данные: ' + response.status);
+        }
     } catch (error) {
         alert('Ошибка при сбросе: ' + error.message);
     }
