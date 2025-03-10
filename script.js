@@ -12,22 +12,27 @@ async function login() {
     }
 
     try {
-        // Проверяем существующий bin по имени
-        const binsResponse = await fetch(`${BASE_URL}?name=${code}`, {
-            headers: { 'X-Master-Key': API_KEY }
-        });
-        const binsData = await binsResponse.json();
-        let bin = binsData.record.find(b => b.name === code);
+        // Проверяем, есть ли сохранённый binId для этого кода
+        currentBinId = localStorage.getItem(`bin_${code}`);
 
-        if (bin) {
-            currentBinId = bin.id;
-            const planResponse = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
+        if (currentBinId) {
+            // Проверяем, существует ли bin
+            const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
                 headers: { 'X-Master-Key': API_KEY }
             });
-            const plan = await planResponse.json().record;
-            if (plan.frequency) showPlan(plan);
-            else showSection('choice-section');
-        } else {
+            if (response.ok) {
+                const plan = await response.json().record;
+                if (plan.frequency) {
+                    showPlan(plan);
+                    return;
+                }
+            } else {
+                currentBinId = null; // Если bin не найден, создаём новый
+            }
+        }
+
+        // Если binId нет или он недействителен, создаём новый bin
+        if (!currentBinId) {
             const createResponse = await fetch(BASE_URL, {
                 method: 'POST',
                 headers: {
@@ -35,10 +40,14 @@ async function login() {
                     'X-Master-Key': API_KEY,
                     'X-Bin-Name': code
                 },
-                body: JSON.stringify({ frequency: 0, duration: 0, start: '', end: '' })
+                body: JSON.stringify({ code: code, frequency: 0, duration: 0, start: '', end: '' })
             });
+            if (!createResponse.ok) throw new Error('Не удалось создать bin');
             const createData = await createResponse.json();
             currentBinId = createData.metadata.id;
+            localStorage.setItem(`bin_${code}`, currentBinId);
+            showSection('choice-section');
+        } else {
             showSection('choice-section');
         }
 
@@ -71,6 +80,7 @@ async function createPlan() {
     const step = frequency * 0.1 / days; // Увеличиваем интервал на 10% в день
 
     const plan = {
+        code: localStorage.getItem('syncCode'),
         frequency: frequency,
         duration: duration,
         start: start,
