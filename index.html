@@ -3,83 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Отказ от никотина</title>
-    <style>
-        body { font-family: Arial; margin: 20px; text-align: center; }
-        .container { max-width: 400px; margin: auto; padding: 20px; border: 1px solid #ccc; }
-        .input-group { margin: 10px 0; }
-        input { padding: 8px; width: 200px; margin-right: 10px; }
-        button { padding: 8px 15px; background: #4CAF50; color: white; border: none; margin: 0 5px; }
-    </style>
+    <title>Синхронизация</title>
 </head>
 <body>
-    <div class="container">
-        <h1>Отказ от никотина</h1>
-        <div id="auth">
-            <div class="input-group">
-                <input type="text" id="username" placeholder="Ник">
-                <input type="password" id="password" placeholder="Пароль">
-            </div>
-            <div class="input-group">
-                <button onclick="login()">Войти</button>
-                <button onclick="register()">Зарегистрироваться</button>
-            </div>
-        </div>
-    </div>
-    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-database.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <h1>Введите синхронизационный код</h1>
+    <input type="text" id="syncCode" placeholder="Ваш код">
+    <button onclick="loadData()">Загрузить</button>
+    <p id="status"></p>
+    <textarea id="data" placeholder="Ваши данные"></textarea>
+
     <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyC86ghyajqsfEP_AlmGwywzYr9iTfu2W1k",
-            authDomain: "quit-nicotine.firebaseapp.com",
-            databaseURL: "https://quit-nicotine-default-rtdb.firebaseio.com",
-            projectId: "quit-nicotine",
-            storageBucket: "quit-nicotine.firebasestorage.app",
-            messagingSenderId: "605504642052",
-            appId: "1:605504642052:web:cf5672230aad6edc5b6951"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        const KEY = 'myFixedKey123';
-        let users = {};
+        async function loadData() {
+            const code = document.getElementById("syncCode").value.trim();
+            if (!code) return alert("Введите код!");
 
-        function hashUser(u, p) {
-            return CryptoJS.AES.encrypt(u + ':' + p, KEY).toString();
-        }
+            try {
+                const response = await fetch("https://raw.githubusercontent.com/Gewseee/quit-nicotine/main/data.json");
+                const data = await response.json();
 
-        function loadUsers() {
-            db.ref('users').once('value').then(snapshot => {
-                users = snapshot.val() || {};
-            });
-        }
-
-        function saveUsers() {
-            db.ref('users').set(users);
-        }
-
-        window.onload = loadUsers;
-
-        function register() {
-            let u = document.getElementById('username').value;
-            let p = document.getElementById('password').value;
-            if (!u || !p) return alert('Введите ник и пароль!');
-            let h = hashUser(u, p);
-            if (users[h]) return alert('Аккаунт есть!');
-            users[h] = true;
-            saveUsers();
-            alert('Зарегистрирован!');
-        }
-
-        function login() {
-            let u = document.getElementById('username').value;
-            let p = document.getElementById('password').value;
-            if (!u || !p) return alert('Введите ник и пароль!');
-            let h = hashUser(u, p);
-            if (users[h]) {
-                localStorage.setItem('currentUser', u + ':' + p);
-                document.getElementById('auth').style.display = 'none';
-            } else alert('Неверно!');
+                if (data[code]) {
+                    document.getElementById("data").value = data[code];
+                    document.getElementById("status").textContent = "Данные загружены!";
+                } else {
+                    document.getElementById("status").textContent = "Код не найден!";
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById("status").textContent = "Ошибка загрузки!";
+            }
         }
     </script>
 </body>
