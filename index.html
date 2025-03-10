@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Синхронизация через Gist</title>
+    <title>Синхронизация через JSONBin.io</title>
 </head>
 <body>
     <h1>Введите синхронизационный код</h1>
@@ -14,15 +14,19 @@
     <textarea id="data" placeholder="Ваши данные"></textarea>
 
     <script>
-        const gistUrl = "ВСТАВЬ СЮДА СВОЮ RAW-ССЫЛКУ ИЗ GIST";
+        const binId = "https://api.jsonbin.io/v3/b/67cf1fd08561e97a50e97b68";
+        const apiKey = "$2a$10$x64cmBVcoKyTf.0mDg7lJePkx.fG5KXYzOGshiFyICAzw9nvEKYla";
 
         async function loadData() {
             const code = document.getElementById("syncCode").value.trim();
             if (!code) return alert("Введите код!");
 
             try {
-                const response = await fetch(gistUrl);
-                const data = await response.json();
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+                    headers: { "X-Master-Key": apiKey }
+                });
+                const json = await response.json();
+                const data = json.record;
 
                 if (data[code]) {
                     document.getElementById("data").value = data[code];
@@ -36,8 +40,34 @@
             }
         }
 
-        function saveData() {
-            alert("Сохранение работает вручную: открой Gist и обнови данные!");
+        async function saveData() {
+            const code = document.getElementById("syncCode").value.trim();
+            const value = document.getElementById("data").value.trim();
+            if (!code || !value) return alert("Введите код и данные!");
+
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+                    headers: { "X-Master-Key": apiKey }
+                });
+                const json = await response.json();
+                const data = json.record;
+
+                data[code] = value; // Обновляем данные
+
+                await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Master-Key": apiKey
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                document.getElementById("status").textContent = "Данные сохранены!";
+            } catch (e) {
+                console.error(e);
+                document.getElementById("status").textContent = "Ошибка сохранения!";
+            }
         }
     </script>
 </body>
