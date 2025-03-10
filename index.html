@@ -19,7 +19,7 @@
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
-        input {
+        input, select {
             padding: 10px;
             width: 200px;
             margin: 10px 0;
@@ -41,7 +41,7 @@
         .hidden {
             display: none;
         }
-        h1 {
+        h1, h2 {
             color: #333;
         }
         p {
@@ -52,20 +52,69 @@
 <body>
     <div class="container">
         <h1>Бросаем никотин</h1>
+
+        <!-- Ввод кода -->
         <div id="login-section">
             <p>Введи свой код (или придумай новый):</p>
             <input type="text" id="sync-code" placeholder="Например: MYCODE123">
             <button onclick="login()">Войти</button>
             <p>Запомни код для входа с других устройств!</p>
         </div>
-        <div id="main-section" class="hidden">
-            <h2>Твой прогресс</h2>
-            <p>Дней без никотина: <span id="days">0</span></p>
-            <button onclick="addDay()">+1 день</button>
-            <button onclick="resetDays()">Сбросить</button>
-            <p>Твой код: <span id="current-code"></span></p>
+
+        <!-- Выбор бросания -->
+        <div id="choice-section" class="hidden">
+            <h2>Что ты хочешь бросить?</h2>
+            <button onclick="choose('smoke')">Бросаю курить</button>
+            <button onclick="choose('vape')">Бросаю парить</button>
+        </div>
+
+        <!-- Форма для парения -->
+        <div id="vape-form" class="hidden">
+            <h2>Расскажи о своей привычке</h2>
+            <p>Через сколько времени тебе хочется парить?</p>
+            <select id="vape-frequency">
+                <option value="360">Очень редко (раз в 6+ часов)</option>
+                <option value="240">Не часто (раз в 3-5 часов)</option>
+                <option value="90">Средне (раз в 1-2 часа)</option>
+                <option value="45">Часто (раз в 30-60 минут)</option>
+                <option value="20">Очень часто (раз в 15-30 минут)</option>
+                <option value="10">Почти всегда (раз в 5-15 минут)</option>
+            </select>
+            <p>Сколько минут длится одно парение?</p>
+            <select id="vape-duration">
+                <option value="2">2 минуты</option>
+                <option value="5">5 минут</option>
+                <option value="10">10 минут</option>
+            </select>
+            <p>Когда начинаешь? (сегодня)</p>
+            <input type="date" id="start-date" disabled value="2025-03-10">
+            <p>Когда хочешь бросить?</p>
+            <input type="date" id="end-date" min="2025-03-17">
+            <button onclick="createPlan()">Создать план</button>
+        </div>
+
+        <!-- План -->
+        <div id="plan-section" class="hidden">
+            <h2>Твой план</h2>
+            <p>Следующее парение через: <span id="next-vape">X минут</span></p>
+            <p>Длительность: <span id="vape-time">Y минут</span></p>
+            <button onclick="startVaping()">Начать парение</button>
+            <button onclick="resetPlan()">Сорвался? Пересчитать</button>
+            <p>Дней до конца: <span id="days-left">Z</span></p>
+            <button onclick="showTips()">Советы</button>
+        </div>
+
+        <!-- Советы -->
+        <div id="tips-section" class="hidden">
+            <h2>Советы</h2>
+            <p>Тянет парить? Попробуй выпить воды, пожевать жвачку, пройтись, подышать свежим воздухом, послушать музыку, поиграть в игру на телефоне или сделать пару глубоких вдохов.</p>
+            <p>Если хочешь помочь себе, бери жидкость с никотином меньше на 3-6 мг. Если других вариантов нет, можно взять на 6+ мг, но только если тебе комфортно. План работает и без этого!</p>
+            <p>Если таймер на сайте неудобен, используй телефон — поставь напоминание на нужное время.</p>
+            <p>Ты уже держишься — это реальная сила!</p>
+            <button onclick="backToPlan()">Назад</button>
         </div>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>
