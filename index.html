@@ -3,22 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Синхронизация</title>
+    <title>Синхронизация через Gist</title>
 </head>
 <body>
     <h1>Введите синхронизационный код</h1>
     <input type="text" id="syncCode" placeholder="Ваш код">
     <button onclick="loadData()">Загрузить</button>
+    <button onclick="saveData()">Сохранить</button>
     <p id="status"></p>
     <textarea id="data" placeholder="Ваши данные"></textarea>
 
     <script>
+        const gistUrl = "ВСТАВЬ СЮДА СВОЮ RAW-ССЫЛКУ ИЗ GIST";
+
         async function loadData() {
             const code = document.getElementById("syncCode").value.trim();
             if (!code) return alert("Введите код!");
 
             try {
-                const response = await fetch("https://raw.githubusercontent.com/Gewseee/quit-nicotine/main/data.json");
+                const response = await fetch(gistUrl);
                 const data = await response.json();
 
                 if (data[code]) {
@@ -31,6 +34,10 @@
                 console.error(e);
                 document.getElementById("status").textContent = "Ошибка загрузки!";
             }
+        }
+
+        function saveData() {
+            alert("Сохранение работает вручную: открой Gist и обнови данные!");
         }
     </script>
 </body>
