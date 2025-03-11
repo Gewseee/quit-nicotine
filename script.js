@@ -8,10 +8,10 @@ let originalPlan = null;
 
 async function login() {
     const binId = document.getElementById('sync-code').value.trim() || localStorage.getItem('binId');
+    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при любом входе
+    originalPlan = null; // Сбрасываем originalPlan
     if (!binId) {
         showSection('login-section');
-        document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку
-        originalPlan = null; // Сбрасываем originalPlan
         return;
     }
 
