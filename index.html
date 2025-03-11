@@ -11,13 +11,15 @@
         button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
         button:hover { background-color: #45a049; }
         .hidden { display: none; }
-        h1, h2 { color: #333; margin: 10px 0; }
+        h1 { font-weight: bold; color: #333; margin: 10px 0; } /* Только одна жирная надпись */
+        h2 { font-weight: normal; color: #333; margin: 10px 0; }
         p { color: #666; margin: 5px 0; }
         #tips-section p { text-align: left; }
-        .frozen-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 20; border-radius: 10px; pointer-events: auto; }
+        .frozen-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(8px); z-index: 10; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
         .frozen-overlay p { font-size: 24px; color: #333; background: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         #plan-info { margin-bottom: 15px; }
         #plan-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .always-active { position: relative; z-index: 20; } /* Кнопки поверх блюра */
     </style>
 </head>
 <body>
@@ -70,8 +72,8 @@
                 <button id="start-vape" onclick="startVaping()">Начать парение</button>
                 <button id="stop-vape" onclick="stopVaping()" class="hidden">Закончить сеанс</button>
                 <button onclick="resetPlan()">Сорвался</button>
-                <button onclick="editPlan()">Редактировать план</button>
-                <button onclick="showTips()">Советы</button>
+                <button class="always-active" onclick="editPlan()">Редактировать план</button>
+                <button class="always-active" onclick="showTips()">Советы</button>
             </div>
             <div id="frozen-overlay" class="hidden"><p>До начала курса: <span id="days-to-start"></span> дней</p></div>
         </div>
