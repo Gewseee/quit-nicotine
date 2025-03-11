@@ -1,6 +1,6 @@
 const API_KEY = '$2a$10$x64cmBVcoKyTf.0mDg7lJePkx.fG5KXYzOGshiFyICAzw9nvEKYla';
 const BASE_URL = 'https://api.jsonbin.io/v3/b';
-const MASTER_BIN_ID = '64f9d3e8-8b1e-4c2d-9f3a-7e8d2c1b3a4f'; // Замени на свой реальный MASTER_BIN_ID
+const MASTER_BIN_ID = '6603c8b2-1e7b-4f8a-9b2c-5d8e7f9a3b4c'; // Замени на свой реальный MASTER_BIN_ID
 
 let currentBinId = null;
 let vapeTimer = null;
