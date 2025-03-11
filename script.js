@@ -10,6 +10,7 @@ async function login() {
     const binId = document.getElementById('sync-code').value.trim() || localStorage.getItem('binId');
     if (!binId) {
         showSection('login-section');
+        document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при входе
         return;
     }
 
@@ -98,6 +99,7 @@ function showPlan(plan) {
         document.querySelectorAll('#plan-actions button:not(.always-active)').forEach(btn => btn.disabled = true);
         if (nextVapeTimer) clearInterval(nextVapeTimer);
         document.getElementById('next-vape').textContent = 'Ожидание начала';
+        document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку
         return;
     } else {
         document.getElementById('frozen-overlay').classList.add('hidden');
@@ -134,6 +136,7 @@ async function editPlan() {
     document.getElementById('end-date').value = plan.end || '';
     document.getElementById('submit-plan').textContent = 'Сохранить изменения';
     document.getElementById('submit-plan').onclick = createPlan;
+    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при открытии формы
 }
 
 function cancelEdit() {
@@ -141,7 +144,8 @@ function cancelEdit() {
 }
 
 function confirmCancel(confirm) {
-    document.getElementById('cancel-modal').classList.add('hidden');
+    const modal = document.getElementById('cancel-modal');
+    modal.classList.add('hidden'); // Закрываем модалку в любом случае
     if (confirm) {
         if (originalPlan && (originalPlan.frequency > 0 && originalPlan.duration && originalPlan.start && originalPlan.end)) {
             showPlan(originalPlan);
@@ -220,10 +224,12 @@ async function resetPlan() {
 
 function showTips() {
     showSection('tips-section');
+    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при переходе к советам
 }
 
 function backToPlan() {
     showSection('plan-section');
+    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при возврате
 }
 
 function showSection(sectionId) {
