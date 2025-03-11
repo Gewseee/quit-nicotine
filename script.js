@@ -90,9 +90,9 @@ function showPlan(plan) {
         const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
         document.getElementById('days-to-start').textContent = daysToStart;
         document.getElementById('frozen-overlay').classList.remove('hidden');
-        document.getElementById('next-vape').textContent = 'Ожидание начала';
         document.querySelectorAll('#plan-actions button').forEach(btn => btn.disabled = true);
         if (nextVapeTimer) clearInterval(nextVapeTimer);
+        document.getElementById('next-vape').textContent = 'Ожидание начала';
         return;
     } else {
         document.getElementById('frozen-overlay').classList.add('hidden');
@@ -121,7 +121,7 @@ async function editPlan() {
     const plan = await loadPlan();
 
     showSection('vape-form');
-    document.getElementById('form-title').textContent = 'Изменить план';
+    document.getElementById('form-title').textContent = 'Настроить план';
     document.getElementById('vape-frequency').value = plan.frequency || 360;
     document.getElementById('vape-duration').value = plan.duration || 1;
     document.getElementById('start-date').value = plan.start || '';
