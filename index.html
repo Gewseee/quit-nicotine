@@ -15,15 +15,19 @@
         h2 { font-weight: normal; color: #333; margin: 10px 0; }
         p { color: #666; margin: 5px 0; }
         #tips-section p { text-align: left; }
-        #plan-section.frozen { position: relative; backdrop-filter: blur(12px); background: rgba(255, 255, 255, 0.3); }
+        #plan-section.frozen { position: relative; background: rgba(255, 255, 255, 0.8); }
         .frozen-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .frozen-overlay p { font-size: 24px; color: #333; background: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); margin: 10px; }
         #plan-info { margin-bottom: 15px; }
         #plan-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
         .always-active { position: relative; z-index: 20; }
+        .form-actions { display: flex; gap: 10px; justify-content: center; }
         .cancel-btn { background-color: #ff4444; display: flex; align-items: center; gap: 5px; }
-        .cancel-btn::before { content: "↺"; font-size: 16px; }
+        .cancel-btn::before { content: "←"; font-size: 16px; }
         .cancel-btn:hover { background-color: #cc0000; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .modal-content { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.3); text-align: center; }
+        .modal-content button { margin: 10px; }
     </style>
 </head>
 <body>
@@ -62,8 +66,10 @@
             <input type="date" id="start-date">
             <p>Когда хочешь бросить?</p>
             <input type="date" id="end-date">
-            <button id="submit-plan" onclick="createPlan()">Создать план</button>
-            <button class="cancel-btn" onclick="cancelEdit()">Отменить изменения</button>
+            <div class="form-actions">
+                <button id="submit-plan" onclick="createPlan()">Создать план</button>
+                <button class="cancel-btn" onclick="cancelEdit()">Отменить изменения</button>
+            </div>
         </div>
 
         <div id="plan-section" class="hidden">
@@ -96,6 +102,14 @@
             <p>7. Поставь таймер на телефон, если сайт неудобен.</p>
             <p>Твой прогресс — уже сила!</p>
             <button onclick="backToPlan()">Назад</button>
+        </div>
+    </div>
+
+    <div id="cancel-modal" class="modal hidden">
+        <div class="modal-content">
+            <p>Точно сбросить изменения?</p>
+            <button onclick="confirmCancel(true)">Да</button>
+            <button onclick="confirmCancel(false)">Нет</button>
         </div>
     </div>
 
