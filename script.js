@@ -3,9 +3,9 @@ const BASE_URL = 'https://api.jsonbin.io/v3/b';
 const MASTER_BIN_ID = '65f7a8d4-dc9f-4b3e-9c2a-8f6e3d1b2c4d'; // Реальный MASTER_BIN_ID
 
 let currentBinId = null;
-let vapeTimer = null; // Таймер парения
-let nextVapeTimer = null; // Таймер до следующего парения
-let nextVapeTimeLeft = 0; // Оставшееся время до следующего парения
+let vapeTimer = null;
+let nextVapeTimer = null;
+let nextVapeTimeLeft = 0;
 
 async function login() {
     const code = document.getElementById('sync-code').value.trim();
@@ -15,30 +15,37 @@ async function login() {
     }
 
     try {
+        // Шаг 1: Получаем текущий мастер-bin
         const masterResponse = await fetch(`${BASE_URL}/${MASTER_BIN_ID}/latest`, {
             headers: { 'X-Master-Key': API_KEY }
         });
-        let bins = {};
-        if (masterResponse.ok) {
-            const masterData = await masterResponse.json();
-            bins = masterData.record && masterData.record.bins ? masterData.record.bins : {};
-        }
+        if (!masterResponse.ok) throw new Error('Не удалось загрузить мастер-bin');
+        const masterData = await masterResponse.json();
+        const bins = masterData.record && masterData.record.bins ? masterData.record.bins : {};
+        console.log('Мастер-bin:', bins); // Отладка
 
+        // Шаг 2: Проверяем, есть ли binId для этого кода
         currentBinId = bins[code];
+        console.log('Найден binId для кода', code, ':', currentBinId); // Отладка
 
         if (currentBinId) {
+            // Шаг 3: Загружаем существующий план
             const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
                 headers: { 'X-Master-Key': API_KEY }
             });
             if (response.ok) {
                 const plan = await response.json().record;
+                console.log('Загружен план:', plan); // Отладка
                 if (plan.frequency && plan.code === code) {
                     showPlan(plan);
                     return;
                 }
+            } else {
+                console.log('BinId существует, но данные недоступны, создаём новый'); // Отладка
             }
         }
 
+        // Шаг 4: Если binId нет или данные повреждены, создаём новый bin
         const createResponse = await fetch(BASE_URL, {
             method: 'POST',
             headers: {
@@ -51,9 +58,11 @@ async function login() {
         if (!createResponse.ok) throw new Error('Не удалось создать bin');
         const createData = await createResponse.json();
         currentBinId = createData.metadata.id;
+        console.log('Создан новый binId:', currentBinId); // Отладка
 
+        // Шаг 5: Обновляем мастер-bin с новым binId
         bins[code] = currentBinId;
-        await fetch(`${BASE_URL}/${MASTER_BIN_ID}`, {
+        const updateMasterResponse = await fetch(`${BASE_URL}/${MASTER_BIN_ID}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -61,11 +70,14 @@ async function login() {
             },
             body: JSON.stringify({ bins: bins })
         });
+        if (!updateMasterResponse.ok) throw new Error('Не удалось обновить мастер-bin');
+        console.log('Мастер-bin обновлён:', bins); // Отладка
 
         localStorage.setItem('syncCode', code);
         showSection('choice-section');
     } catch (error) {
         alert('Ошибка: ' + error.message);
+        console.error('Ошибка в login:', error);
     }
 }
 
@@ -137,10 +149,8 @@ async function startVaping() {
     const duration = parseInt(document.getElementById('vape-time').textContent);
     let vapeTimeLeft = duration * 60;
 
-    // Пауза основного таймера
     if (nextVapeTimer) clearInterval(nextVapeTimer);
 
-    // Переключение кнопок
     document.getElementById('start-vape').classList.add('hidden');
     document.getElementById('stop-vape').classList.remove('hidden');
 
@@ -161,7 +171,6 @@ async function stopVaping() {
     document.getElementById('start-vape').classList.remove('hidden');
     document.getElementById('stop-vape').classList.add('hidden');
 
-    // Возобновляем основной таймер с оставшимся временем
     nextVapeTimer = setInterval(() => {
         nextVapeTimeLeft--;
         document.getElementById('next-vape').textContent = `${Math.floor(nextVapeTimeLeft / 60)} минут ${nextVapeTimeLeft % 60} секунд`;
@@ -189,7 +198,7 @@ async function updatePlan() {
         body: JSON.stringify(plan)
     });
 
-    nextVapeTimeLeft = plan.currentFrequency * 60; // Обновляем оставшееся время
+    nextVapeTimeLeft = plan.currentFrequency * 60;
     showPlan(plan);
 }
 
@@ -210,7 +219,7 @@ async function resetPlan() {
         body: JSON.stringify(plan)
     });
 
-    showPlan(plan); // Обновляем интерфейс сразу
+    showPlan(plan);
 }
 
 function showTips() {
