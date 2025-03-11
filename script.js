@@ -83,6 +83,7 @@ async function createPlan() {
 }
 
 function showPlan(plan) {
+    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку
     const planSection = document.getElementById('plan-section');
     planSection.classList.remove('frozen');
     showSection('plan-section');
@@ -100,7 +101,6 @@ function showPlan(plan) {
         document.querySelectorAll('#plan-actions button:not(.always-active)').forEach(btn => btn.disabled = true);
         if (nextVapeTimer) clearInterval(nextVapeTimer);
         document.getElementById('next-vape').textContent = 'Ожидание начала';
-        document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку
         return;
     } else {
         document.getElementById('frozen-overlay').classList.add('hidden');
