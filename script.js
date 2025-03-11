@@ -1,5 +1,6 @@
 const API_KEY = '$2a$10$x64cmBVcoKyTf.0mDg7lJePkx.fG5KXYzOGshiFyICAzw9nvEKYla';
 const BASE_URL = 'https://api.jsonbin.io/v3/b';
+const MASTER_BIN_ID = '64f9d3e8-8b1e-4c2d-9f3a-7e8d2c1b3a4f'; // Замени на свой реальный MASTER_BIN_ID
 
 let currentBinId = null;
 let vapeTimer = null;
@@ -12,46 +13,52 @@ async function login() {
     }
 
     try {
-        // Проверяем, есть ли сохранённый binId для этого кода
-        currentBinId = localStorage.getItem(`bin_${code}`);
+        const masterResponse = await fetch(`${BASE_URL}/${MASTER_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': API_KEY }
+        });
+        const masterData = await masterResponse.json();
+        const bins = masterData.record.bins || {};
+
+        currentBinId = bins[code];
 
         if (currentBinId) {
-            // Проверяем, существует ли bin
             const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
                 headers: { 'X-Master-Key': API_KEY }
             });
             if (response.ok) {
                 const plan = await response.json().record;
-                if (plan.frequency) {
+                if (plan.frequency && plan.code === code) {
                     showPlan(plan);
                     return;
                 }
-            } else {
-                currentBinId = null; // Если bin не найден, создаём новый
             }
         }
 
-        // Если binId нет или он недействителен, создаём новый bin
-        if (!currentBinId) {
-            const createResponse = await fetch(BASE_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': API_KEY,
-                    'X-Bin-Name': code
-                },
-                body: JSON.stringify({ code: code, frequency: 0, duration: 0, start: '', end: '' })
-            });
-            if (!createResponse.ok) throw new Error('Не удалось создать bin');
-            const createData = await createResponse.json();
-            currentBinId = createData.metadata.id;
-            localStorage.setItem(`bin_${code}`, currentBinId);
-            showSection('choice-section');
-        } else {
-            showSection('choice-section');
-        }
+        const createResponse = await fetch(BASE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': API_KEY,
+                'X-Bin-Name': code
+            },
+            body: JSON.stringify({ code: code, frequency: 0, duration: 0, start: '', end: '' })
+        });
+        if (!createResponse.ok) throw new Error('Не удалось создать bin');
+        const createData = await createResponse.json();
+        currentBinId = createData.metadata.id;
+
+        bins[code] = currentBinId;
+        await fetch(`${BASE_URL}/${MASTER_BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': API_KEY
+            },
+            body: JSON.stringify({ bins: bins })
+        });
 
         localStorage.setItem('syncCode', code);
+        showSection('choice-section');
     } catch (error) {
         alert('Ошибка: ' + error.message);
     }
@@ -61,6 +68,10 @@ function choose(option) {
     if (option === 'smoke') {
         document.body.innerHTML = '<h1>Пока тут ничего нет, возвращайся позже!</h1>';
     } else {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('start-date').setAttribute('min', today);
+        document.getElementById('start-date').value = today;
+        document.getElementById('end-date').setAttribute('min', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
         showSection('vape-form');
     }
 }
@@ -71,13 +82,13 @@ async function createPlan() {
     const start = document.getElementById('start-date').value;
     const end = document.getElementById('end-date').value;
 
-    if (!end) {
-        alert('Выбери дату окончания!');
+    if (!end || new Date(end) <= new Date(start)) {
+        alert('Выбери дату окончания позже начала!');
         return;
     }
 
     const days = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24));
-    const step = frequency * 0.1 / days; // Увеличиваем интервал на 10% в день
+    const step = frequency / days;
 
     const plan = {
         code: localStorage.getItem('syncCode'),
@@ -86,7 +97,8 @@ async function createPlan() {
         start: start,
         end: end,
         currentFrequency: frequency,
-        daysLeft: days
+        daysLeft: days,
+        step: step
     };
 
     await fetch(`${BASE_URL}/${currentBinId}`, {
@@ -120,14 +132,22 @@ async function startVaping() {
     const duration = parseInt(document.getElementById('vape-time').textContent);
     let timeLeft = duration * 60;
     clearInterval(vapeTimer);
+    document.getElementById('stop-vape').classList.remove('hidden');
     vapeTimer = setInterval(() => {
         timeLeft--;
         document.getElementById('vape-time').textContent = `${Math.floor(timeLeft / 60)} минут ${timeLeft % 60} секунд`;
         if (timeLeft <= 0) {
             clearInterval(vapeTimer);
+            document.getElementById('stop-vape').classList.add('hidden');
             updatePlan();
         }
     }, 1000);
+}
+
+async function stopVaping() {
+    clearInterval(vapeTimer);
+    document.getElementById('stop-vape').classList.add('hidden');
+    updatePlan();
 }
 
 async function updatePlan() {
@@ -135,7 +155,7 @@ async function updatePlan() {
         headers: { 'X-Master-Key': API_KEY }
     });
     const plan = await response.json().record;
-    plan.currentFrequency += plan.frequency * 0.1; // Увеличиваем интервал
+    plan.currentFrequency += plan.step; // Используем заранее рассчитанный шаг
     plan.daysLeft--;
     if (plan.daysLeft <= 0) plan.currentFrequency = Infinity;
 
@@ -151,8 +171,24 @@ async function updatePlan() {
     showPlan(plan);
 }
 
-function resetPlan() {
-    showSection('vape-form');
+async function resetPlan() {
+    const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
+        headers: { 'X-Master-Key': API_KEY }
+    });
+    const plan = await response.json().record;
+    plan.daysLeft += 1;
+    plan.end = new Date(new Date(plan.end).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    await fetch(`${BASE_URL}/${currentBinId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': API_KEY
+        },
+        body: JSON.stringify(plan)
+    });
+
+    showPlan(plan);
 }
 
 function showTips() {
