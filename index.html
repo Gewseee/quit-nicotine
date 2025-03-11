@@ -6,7 +6,7 @@
     <title>Quit Nicotine</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f0f0f0; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative; }
         input, select { padding: 10px; width: 200px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
         button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
         button:hover { background-color: #45a049; }
@@ -14,6 +14,8 @@
         h1, h2 { color: #333; }
         p { color: #666; }
         #tips-section p { text-align: left; }
+        .frozen-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 10; }
+        .frozen-overlay p { font-size: 20px; color: #333; }
     </style>
 </head>
 <body>
@@ -64,6 +66,7 @@
             <button onclick="resetPlan()">Сорвался</button>
             <p>Дней до конца: <span id="days-left">Z</span></p>
             <button onclick="showTips()">Советы</button>
+            <div id="frozen-overlay" class="hidden"><p>До начала курса: <span id="days-to-start"></span> дней</p></div>
         </div>
 
         <div id="tips-section" class="hidden">
