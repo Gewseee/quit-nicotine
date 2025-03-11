@@ -10,7 +10,8 @@ async function login() {
     const binId = document.getElementById('sync-code').value.trim() || localStorage.getItem('binId');
     if (!binId) {
         showSection('login-section');
-        document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при входе
+        document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку
+        originalPlan = null; // Сбрасываем originalPlan
         return;
     }
 
@@ -140,16 +141,20 @@ async function editPlan() {
 }
 
 function cancelEdit() {
-    document.getElementById('cancel-modal').classList.remove('hidden');
+    const currentSection = document.querySelector('.container > div:not(.hidden)').id;
+    if (currentSection === 'vape-form') { // Показываем модалку только в форме
+        document.getElementById('cancel-modal').classList.remove('hidden');
+    }
 }
 
 function confirmCancel(confirm) {
     const modal = document.getElementById('cancel-modal');
-    modal.classList.add('hidden'); // Закрываем модалку в любом случае
+    modal.classList.add('hidden'); // Всегда закрываем модалку
     if (confirm) {
         if (originalPlan && (originalPlan.frequency > 0 && originalPlan.duration && originalPlan.start && originalPlan.end)) {
-            showPlan(originalPlan);
+            showPlan(originalPlan); // Возвращаем к плану, если он есть
         } else {
+            // Сбрасываем форму, но не трогаем login-section
             showSection('vape-form');
             document.getElementById('form-title').textContent = 'Расскажи о своей привычке';
             document.getElementById('vape-frequency').value = '360';
@@ -159,7 +164,7 @@ function confirmCancel(confirm) {
             document.getElementById('submit-plan').textContent = 'Создать план';
             document.getElementById('submit-plan').onclick = createPlan;
         }
-        originalPlan = null;
+        originalPlan = null; // Обнуляем после сброса
     }
 }
 
