@@ -19,12 +19,14 @@ async function login() {
             headers: { 'X-Master-Key': API_KEY }
         });
         if (response.ok) {
-            const plan = await response.json().record;
-            if (plan.frequency) {
+            const data = await response.json();
+            const plan = data.record || {};
+            if (plan.frequency > 0) { // Проверяем, что frequency есть и больше 0
                 showPlan(plan);
                 return;
             }
         }
+        // Если bin пустой или новый, инициализируем его
         await fetch(`${BASE_URL}/${currentBinId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
