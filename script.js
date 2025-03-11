@@ -239,6 +239,7 @@ function backToPlan() {
 function showSection(sectionId) {
     document.querySelectorAll('.container > div').forEach(div => div.classList.add('hidden'));
     document.getElementById(sectionId).classList.remove('hidden');
+    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при переключении секций
 }
 
 window.onload = async function() {
