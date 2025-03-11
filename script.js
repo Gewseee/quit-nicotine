@@ -99,4 +99,119 @@ function showPlan(plan) {
     nextVapeTimer = setInterval(() => {
         const now = new Date();
         const lastVape = plan.lastVapeTime ? new Date(plan.lastVapeTime) : null;
-        le
+        let timeLeft;
+
+        if (lastVape) {
+            const elapsed = (now - lastVape) / (1000 * 60);
+            timeLeft = Math.max(0, plan.currentFrequency - elapsed) * 60;
+        } else {
+            timeLeft = plan.currentFrequency * 60;
+        }
+
+        document.getElementById('next-vape').textContent = `${Math.floor(timeLeft / 60)} минут ${Math.round(timeLeft % 60)} секунд`;
+        if (timeLeft <= 0) document.getElementById('next-vape').textContent = 'Можно парить';
+    }, 1000);
+}
+
+async function editPlan() {
+    const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
+        headers: { 'X-Master-Key': API_KEY }
+    });
+    const plan = await response.json().record;
+
+    showSection('vape-form');
+    document.getElementById('form-title').textContent = 'Изменить план';
+    document.getElementById('vape-frequency').value = plan.frequency;
+    document.getElementById('vape-duration').value = plan.duration;
+    document.getElementById('start-date').value = plan.start;
+    document.getElementById('end-date').value = plan.end;
+    document.getElementById('submit-plan').textContent = 'Сохранить изменения';
+    document.getElementById('submit-plan').onclick = async () => {
+        await createPlan();
+        document.getElementById('form-title').textContent = 'Расскажи о своей привычке';
+        document.getElementById('submit-plan').textContent = 'Создать план';
+        document.getElementById('submit-plan').onclick = createPlan;
+    };
+}
+
+async function startVaping() {
+    const duration = parseInt(document.getElementById('vape-time').textContent);
+    let vapeTimeLeft = duration * 60;
+
+    if (nextVapeTimer) clearInterval(nextVapeTimer);
+    document.getElementById('start-vape').classList.add('hidden');
+    document.getElementById('stop-vape').classList.remove('hidden');
+
+    vapeTimer = setInterval(() => {
+        vapeTimeLeft--;
+        document.getElementById('vape-time').textContent = `${Math.floor(vapeTimeLeft / 60)} минут ${vapeTimeLeft % 60} секунд`;
+        if (vapeTimeLeft <= 0) {
+            clearInterval(vapeTimer);
+            document.getElementById('start-vape').classList.remove('hidden');
+            document.getElementById('stop-vape').classList.add('hidden');
+            updatePlan(true);
+        }
+    }, 1000);
+}
+
+async function stopVaping() {
+    if (vapeTimer) clearInterval(vapeTimer);
+    document.getElementById('start-vape').classList.remove('hidden');
+    document.getElementById('stop-vape').classList.add('hidden');
+    updatePlan(true);
+}
+
+async function updatePlan(markVapeTime = false) {
+    const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
+        headers: { 'X-Master-Key': API_KEY }
+    });
+    const plan = await response.json().record;
+    if (markVapeTime) {
+        plan.lastVapeTime = new Date().toISOString();
+        plan.currentFrequency += plan.step;
+        plan.daysLeft--;
+    }
+    if (plan.daysLeft <= 0) plan.currentFrequency = Infinity;
+
+    await fetch(`${BASE_URL}/${currentBinId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+        body: JSON.stringify(plan)
+    });
+
+    showPlan(plan);
+}
+
+async function resetPlan() {
+    const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
+        headers: { 'X-Master-Key': API_KEY }
+    });
+    const plan = await response.json().record;
+    plan.daysLeft += 1;
+    plan.end = new Date(new Date(plan.end).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    await fetch(`${BASE_URL}/${currentBinId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+        body: JSON.stringify(plan)
+    });
+
+    showPlan(plan);
+}
+
+function showTips() {
+    showSection('tips-section');
+}
+
+function backToPlan() {
+    showSection('plan-section');
+}
+
+function showSection(sectionId) {
+    document.querySelectorAll('.container > div').forEach(div => div.classList.add('hidden'));
+    document.getElementById(sectionId).classList.remove('hidden');
+}
+
+window.onload = async function() {
+    await login();
+};
