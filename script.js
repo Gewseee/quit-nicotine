@@ -4,12 +4,11 @@ const BASE_URL = 'https://api.jsonbin.io/v3/b';
 let currentBinId = null;
 let vapeTimer = null;
 let nextVapeTimer = null;
-let nextVapeTimeLeft = 0;
 
 async function login() {
-    const binId = document.getElementById('sync-code').value.trim();
+    const binId = document.getElementById('sync-code').value.trim() || localStorage.getItem('binId');
     if (!binId) {
-        alert('Введите binId!');
+        showSection('login-section');
         return;
     }
 
@@ -21,16 +20,15 @@ async function login() {
         if (response.ok) {
             const data = await response.json();
             const plan = data.record || {};
-            if (plan.frequency > 0) { // Проверяем, что frequency есть и больше 0
+            if (plan.frequency > 0 && plan.duration && plan.start && plan.end) {
                 showPlan(plan);
                 return;
             }
         }
-        // Если bin пустой или новый, инициализируем его
         await fetch(`${BASE_URL}/${currentBinId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify({ frequency: 0, duration: 0, start: '', end: '' })
+            body: JSON.stringify({ frequency: 0, duration: 0, start: '', end: '', lastVapeTime: null })
         });
         localStorage.setItem('binId', binId);
         showSection('vape-form');
@@ -60,7 +58,8 @@ async function createPlan() {
         end: end,
         currentFrequency: frequency,
         daysLeft: days,
-        step: step
+        step: step,
+        lastVapeTime: null // Время последнего парения
     };
 
     await fetch(`${BASE_URL}/${currentBinId}`, {
@@ -74,16 +73,40 @@ async function createPlan() {
 
 function showPlan(plan) {
     showSection('plan-section');
-    document.getElementById('next-vape').textContent = `${Math.round(plan.currentFrequency)} минут`;
     document.getElementById('vape-time').textContent = `${plan.duration} минут`;
     document.getElementById('days-left').textContent = plan.daysLeft;
 
+    const now = new Date();
+    const startDate = new Date(plan.start);
+
+    if (now < startDate) {
+        // Заморозка до начала
+        const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+        document.getElementById('days-to-start').textContent = daysToStart;
+        document.getElementById('frozen-overlay').classList.remove('hidden');
+        document.getElementById('next-vape').textContent = 'Ожидание начала';
+        if (nextVapeTimer) clearInterval(nextVapeTimer);
+        return;
+    } else {
+        document.getElementById('frozen-overlay').classList.add('hidden');
+    }
+
+    // Реальное время до следующего парения
     if (nextVapeTimer) clearInterval(nextVapeTimer);
-    nextVapeTimeLeft = plan.currentFrequency * 60;
     nextVapeTimer = setInterval(() => {
-        nextVapeTimeLeft--;
-        document.getElementById('next-vape').textContent = `${Math.floor(nextVapeTimeLeft / 60)} минут ${nextVapeTimeLeft % 60} секунд`;
-        if (nextVapeTimeLeft <= 0) clearInterval(nextVapeTimer);
+        const now = new Date();
+        const lastVape = plan.lastVapeTime ? new Date(plan.lastVapeTime) : null;
+        let timeLeft;
+
+        if (lastVape) {
+            const elapsed = (now - lastVape) / (1000 * 60); // Минуты с последнего парения
+            timeLeft = Math.max(0, plan.currentFrequency - elapsed) * 60; // Секунды до следующего
+        } else {
+            timeLeft = plan.currentFrequency * 60; // Если не парил, полный интервал
+        }
+
+        document.getElementById('next-vape').textContent = `${Math.floor(timeLeft / 60)} минут ${Math.round(timeLeft % 60)} секунд`;
+        if (timeLeft <= 0) document.getElementById('next-vape').textContent = 'Можно парить';
     }, 1000);
 }
 
@@ -102,7 +125,7 @@ async function startVaping() {
             clearInterval(vapeTimer);
             document.getElementById('start-vape').classList.remove('hidden');
             document.getElementById('stop-vape').classList.add('hidden');
-            updatePlan();
+            updatePlan(true); // Обновляем с меткой времени
         }
     }, 1000);
 }
@@ -111,23 +134,19 @@ async function stopVaping() {
     if (vapeTimer) clearInterval(vapeTimer);
     document.getElementById('start-vape').classList.remove('hidden');
     document.getElementById('stop-vape').classList.add('hidden');
-
-    nextVapeTimer = setInterval(() => {
-        nextVapeTimeLeft--;
-        document.getElementById('next-vape').textContent = `${Math.floor(nextVapeTimeLeft / 60)} минут ${nextVapeTimeLeft % 60} секунд`;
-        if (nextVapeTimeLeft <= 0) clearInterval(nextVapeTimer);
-    }, 1000);
-
-    updatePlan();
+    updatePlan(true); // Обновляем с меткой времени
 }
 
-async function updatePlan() {
+async function updatePlan(markVapeTime = false) {
     const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
         headers: { 'X-Master-Key': API_KEY }
     });
     const plan = await response.json().record;
-    plan.currentFrequency += plan.step;
-    plan.daysLeft--;
+    if (markVapeTime) {
+        plan.lastVapeTime = new Date().toISOString(); // Сохраняем время парения
+        plan.currentFrequency += plan.step;
+        plan.daysLeft--;
+    }
     if (plan.daysLeft <= 0) plan.currentFrequency = Infinity;
 
     await fetch(`${BASE_URL}/${currentBinId}`, {
@@ -136,7 +155,6 @@ async function updatePlan() {
         body: JSON.stringify(plan)
     });
 
-    nextVapeTimeLeft = plan.currentFrequency * 60;
     showPlan(plan);
 }
 
@@ -171,9 +189,5 @@ function showSection(sectionId) {
 }
 
 window.onload = async function() {
-    const binId = localStorage.getItem('binId');
-    if (binId) {
-        document.getElementById('sync-code').value = binId;
-        await login();
-    }
+    await login();
 };
