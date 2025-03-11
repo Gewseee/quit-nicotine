@@ -13,18 +13,8 @@ async function login() {
     }
 
     currentBinId = binId;
-    try {
-        const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
-            headers: { 'X-Master-Key': API_KEY }
-        });
-        if (response.ok) {
-            const data = await response.json();
-            const plan = data.record || {};
-            if (plan.frequency > 0 && plan.duration && plan.start && plan.end) {
-                showPlan(plan);
-                return;
-            }
-        }
+    let plan = await loadPlan();
+    if (!plan || !(plan.frequency > 0 && plan.duration && plan.start && plan.end)) {
         await fetch(`${BASE_URL}/${currentBinId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
@@ -32,8 +22,24 @@ async function login() {
         });
         localStorage.setItem('binId', binId);
         showSection('vape-form');
+    } else {
+        showPlan(plan);
+    }
+}
+
+async function loadPlan() {
+    try {
+        const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
+            headers: { 'X-Master-Key': API_KEY }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            return data.record || {};
+        }
+        return {};
     } catch (error) {
-        alert('Ошибка: ' + error.message);
+        alert('Ошибка загрузки плана: ' + error.message);
+        return {};
     }
 }
 
@@ -48,11 +54,7 @@ async function createPlan() {
         return;
     }
 
-    const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
-        headers: { 'X-Master-Key': API_KEY }
-    });
-    const currentPlan = response.ok ? (await response.json()).record : {};
-
+    const currentPlan = await loadPlan();
     const days = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24));
     const step = frequency / days;
 
@@ -89,10 +91,12 @@ function showPlan(plan) {
         document.getElementById('days-to-start').textContent = daysToStart;
         document.getElementById('frozen-overlay').classList.remove('hidden');
         document.getElementById('next-vape').textContent = 'Ожидание начала';
+        document.querySelectorAll('#plan-actions button').forEach(btn => btn.disabled = true);
         if (nextVapeTimer) clearInterval(nextVapeTimer);
         return;
     } else {
         document.getElementById('frozen-overlay').classList.add('hidden');
+        document.querySelectorAll('#plan-actions button').forEach(btn => btn.disabled = false);
     }
 
     if (nextVapeTimer) clearInterval(nextVapeTimer);
@@ -114,17 +118,14 @@ function showPlan(plan) {
 }
 
 async function editPlan() {
-    const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
-        headers: { 'X-Master-Key': API_KEY }
-    });
-    const plan = await response.json().record;
+    const plan = await loadPlan();
 
     showSection('vape-form');
     document.getElementById('form-title').textContent = 'Изменить план';
-    document.getElementById('vape-frequency').value = plan.frequency;
-    document.getElementById('vape-duration').value = plan.duration;
-    document.getElementById('start-date').value = plan.start;
-    document.getElementById('end-date').value = plan.end;
+    document.getElementById('vape-frequency').value = plan.frequency || 360;
+    document.getElementById('vape-duration').value = plan.duration || 1;
+    document.getElementById('start-date').value = plan.start || '';
+    document.getElementById('end-date').value = plan.end || '';
     document.getElementById('submit-plan').textContent = 'Сохранить изменения';
     document.getElementById('submit-plan').onclick = async () => {
         await createPlan();
@@ -162,10 +163,7 @@ async function stopVaping() {
 }
 
 async function updatePlan(markVapeTime = false) {
-    const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
-        headers: { 'X-Master-Key': API_KEY }
-    });
-    const plan = await response.json().record;
+    const plan = await loadPlan();
     if (markVapeTime) {
         plan.lastVapeTime = new Date().toISOString();
         plan.currentFrequency += plan.step;
@@ -183,10 +181,7 @@ async function updatePlan(markVapeTime = false) {
 }
 
 async function resetPlan() {
-    const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
-        headers: { 'X-Master-Key': API_KEY }
-    });
-    const plan = await response.json().record;
+    const plan = await loadPlan();
     plan.daysLeft += 1;
     plan.end = new Date(new Date(plan.end).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
