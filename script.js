@@ -76,7 +76,7 @@ async function createPlan() {
         body: JSON.stringify(plan)
     });
 
-    originalPlan = null; // Сбрасываем после сохранения
+    originalPlan = null;
     showPlan(plan);
 }
 
@@ -124,7 +124,7 @@ function showPlan(plan) {
 
 async function editPlan() {
     const plan = await loadPlan();
-    originalPlan = { ...plan }; // Сохраняем оригинал для отмены
+    originalPlan = { ...plan };
 
     showSection('vape-form');
     document.getElementById('form-title').textContent = 'Настроить план';
@@ -137,7 +137,12 @@ async function editPlan() {
 }
 
 function cancelEdit() {
-    if (confirm('Точно сбросить изменения?')) {
+    document.getElementById('cancel-modal').classList.remove('hidden');
+}
+
+function confirmCancel(confirm) {
+    document.getElementById('cancel-modal').classList.add('hidden');
+    if (confirm) {
         if (originalPlan && (originalPlan.frequency > 0 && originalPlan.duration && originalPlan.start && originalPlan.end)) {
             showPlan(originalPlan);
         } else {
