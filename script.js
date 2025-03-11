@@ -90,7 +90,7 @@ function showPlan(plan) {
         const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
         document.getElementById('days-to-start').textContent = daysToStart;
         document.getElementById('frozen-overlay').classList.remove('hidden');
-        document.querySelectorAll('#plan-actions button').forEach(btn => btn.disabled = true);
+        document.querySelectorAll('#plan-actions button:not(.always-active)').forEach(btn => btn.disabled = true);
         if (nextVapeTimer) clearInterval(nextVapeTimer);
         document.getElementById('next-vape').textContent = 'Ожидание начала';
         return;
