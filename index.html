@@ -58,7 +58,7 @@
 
         <!-- Ввод кода -->
         <div id="login-section">
-            <p>Введи свой код (или придумай новый):</p>
+            <p>Введи свой код (или придумай новый Taken например):</p>
             <input type="text" id="sync-code" placeholder="Например: MYCODE123">
             <button onclick="login()">Войти</button>
             <p>Запомни код для входа с других устройств!</p>
@@ -105,8 +105,8 @@
             <h2>Твой план</h2>
             <p>Следующее парение через: <span id="next-vape">X минут</span></p>
             <p>Длительность: <span id="vape-time">Y минут</span></p>
-            <button onclick="startVaping()">Начать парение</button>
-            <button onclick="stopVaping()" class="hidden" id="stop-vape">Закончить сеанс</button>
+            <button id="start-vape" onclick="startVaping()">Начать парение</button>
+            <button id="stop-vape" onclick="stopVaping()" class="hidden">Закончить сеанс</button>
             <button onclick="resetPlan()">Сорвался</button>
             <p>Дней до конца: <span id="days-left">Z</span></p>
             <button onclick="showTips()">Советы</button>
