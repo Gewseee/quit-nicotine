@@ -4,6 +4,7 @@ const BASE_URL = 'https://api.jsonbin.io/v3/b';
 let currentBinId = null;
 let vapeTimer = null;
 let nextVapeTimer = null;
+let originalPlan = null;
 
 async function login() {
     const binId = document.getElementById('sync-code').value.trim() || localStorage.getItem('binId');
@@ -75,10 +76,13 @@ async function createPlan() {
         body: JSON.stringify(plan)
     });
 
+    originalPlan = null; // Сбрасываем после сохранения
     showPlan(plan);
 }
 
 function showPlan(plan) {
+    const planSection = document.getElementById('plan-section');
+    planSection.classList.remove('frozen');
     showSection('plan-section');
     document.getElementById('vape-time').textContent = `${plan.duration} минут`;
     document.getElementById('days-left').textContent = plan.daysLeft;
@@ -87,6 +91,7 @@ function showPlan(plan) {
     const startDate = new Date(plan.start);
 
     if (now < startDate) {
+        planSection.classList.add('frozen');
         const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
         document.getElementById('days-to-start').textContent = daysToStart;
         document.getElementById('frozen-overlay').classList.remove('hidden');
@@ -119,6 +124,7 @@ function showPlan(plan) {
 
 async function editPlan() {
     const plan = await loadPlan();
+    originalPlan = { ...plan }; // Сохраняем оригинал для отмены
 
     showSection('vape-form');
     document.getElementById('form-title').textContent = 'Настроить план';
@@ -127,12 +133,25 @@ async function editPlan() {
     document.getElementById('start-date').value = plan.start || '';
     document.getElementById('end-date').value = plan.end || '';
     document.getElementById('submit-plan').textContent = 'Сохранить изменения';
-    document.getElementById('submit-plan').onclick = async () => {
-        await createPlan();
-        document.getElementById('form-title').textContent = 'Расскажи о своей привычке';
-        document.getElementById('submit-plan').textContent = 'Создать план';
-        document.getElementById('submit-plan').onclick = createPlan;
-    };
+    document.getElementById('submit-plan').onclick = createPlan;
+}
+
+function cancelEdit() {
+    if (confirm('Точно сбросить изменения?')) {
+        if (originalPlan && (originalPlan.frequency > 0 && originalPlan.duration && originalPlan.start && originalPlan.end)) {
+            showPlan(originalPlan);
+        } else {
+            showSection('vape-form');
+            document.getElementById('form-title').textContent = 'Расскажи о своей привычке';
+            document.getElementById('vape-frequency').value = '360';
+            document.getElementById('vape-duration').value = '1';
+            document.getElementById('start-date').value = '';
+            document.getElementById('end-date').value = '';
+            document.getElementById('submit-plan').textContent = 'Создать план';
+            document.getElementById('submit-plan').onclick = createPlan;
+        }
+        originalPlan = null;
+    }
 }
 
 async function startVaping() {
