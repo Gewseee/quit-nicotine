@@ -1,6 +1,6 @@
 const API_KEY = '$2a$10$x64cmBVcoKyTf.0mDg7lJePkx.fG5KXYzOGshiFyICAzw9nvEKYla';
 const BASE_URL = 'https://api.jsonbin.io/v3/b';
-const MASTER_BIN_ID = '6603c8b2-1e7b-4f8a-9b2c-5d8e7f9a3b4c'; // Замени на свой реальный MASTER_BIN_ID
+const MASTER_BIN_ID = '65f7a8d4-dc9f-4b3e-9c2a-8f6e3d1b2c4d'; // Реальный MASTER_BIN_ID
 
 let currentBinId = null;
 let vapeTimer = null;
@@ -16,8 +16,23 @@ async function login() {
         const masterResponse = await fetch(`${BASE_URL}/${MASTER_BIN_ID}/latest`, {
             headers: { 'X-Master-Key': API_KEY }
         });
-        const masterData = await masterResponse.json();
-        const bins = masterData.record.bins || {};
+        let bins = {};
+        if (masterResponse.ok) {
+            const masterData = await masterResponse.json();
+            bins = masterData.record && masterData.record.bins ? masterData.record.bins : {};
+        } else {
+            // Если мастер-bin недоступен, создаём его
+            const createMasterResponse = await fetch(BASE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': API_KEY
+                },
+                body: JSON.stringify({ bins: {} })
+            });
+            if (!createMasterResponse.ok) throw new Error('Не удалось создать мастер-bin');
+            console.log('Мастер-bin создан заново, обновите MASTER_BIN_ID вручную');
+        }
 
         currentBinId = bins[code];
 
@@ -155,7 +170,7 @@ async function updatePlan() {
         headers: { 'X-Master-Key': API_KEY }
     });
     const plan = await response.json().record;
-    plan.currentFrequency += plan.step; // Используем заранее рассчитанный шаг
+    plan.currentFrequency += plan.step;
     plan.daysLeft--;
     if (plan.daysLeft <= 0) plan.currentFrequency = Infinity;
 
