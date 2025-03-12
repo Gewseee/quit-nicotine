@@ -55,7 +55,6 @@ async function createPlan() {
         return;
     }
 
-    const currentPlan = await loadPlan();
     const days = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24));
     const step = frequency / days;
 
@@ -64,10 +63,10 @@ async function createPlan() {
         duration: duration,
         start: start,
         end: end,
-        currentFrequency: currentPlan.currentFrequency || frequency,
-        daysLeft: currentPlan.daysLeft || days,
+        currentFrequency: frequency, // Исправлено: начальная частота = frequency
+        daysLeft: days,
         step: step,
-        lastVapeTime: currentPlan.lastVapeTime || null
+        lastVapeTime: null
     };
 
     await fetch(`${BASE_URL}/${currentBinId}`, {
@@ -89,27 +88,26 @@ function showPlan(plan) {
     const startDate = new Date(plan.start);
 
     if (now < startDate) {
-        document.getElementById('frozen-state').classList.remove('hidden');
         const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
         document.getElementById('days-to-start').textContent = daysToStart;
+        document.getElementById('frozen-state').classList.remove('hidden');
         document.getElementById('plan-info').classList.add('hidden');
         document.getElementById('plan-actions').classList.add('hidden');
         if (nextVapeTimer) clearInterval(nextVapeTimer);
-        return;
     } else {
         document.getElementById('frozen-state').classList.add('hidden');
         document.getElementById('plan-info').classList.remove('hidden');
         document.getElementById('plan-actions').classList.remove('hidden');
-    }
 
-    if (nextVapeTimer) clearInterval(nextVapeTimer);
-    nextVapeTimer = setInterval(() => {
-        const now = new Date();
-        const lastVape = plan.lastVapeTime ? new Date(plan.lastVapeTime) : null;
-        let timeLeft = lastVape ? Math.max(0, plan.currentFrequency - (now - lastVape) / (1000 * 60)) * 60 : plan.currentFrequency * 60;
-        document.getElementById('next-vape').textContent = `${Math.floor(timeLeft / 60)} минут ${Math.round(timeLeft % 60)} секунд`;
-        if (timeLeft <= 0) document.getElementById('next-vape').textContent = 'Можно парить';
-    }, 1000);
+        if (nextVapeTimer) clearInterval(nextVapeTimer);
+        nextVapeTimer = setInterval(() => {
+            const now = new Date();
+            const lastVape = plan.lastVapeTime ? new Date(plan.lastVapeTime) : null;
+            let timeLeft = lastVape ? Math.max(0, plan.currentFrequency - (now - lastVape) / (1000 * 60)) * 60 : plan.currentFrequency * 60;
+            document.getElementById('next-vape').textContent = `${Math.floor(timeLeft / 60)} минут ${Math.round(timeLeft % 60)} секунд`;
+            if (timeLeft <= 0) document.getElementById('next-vape').textContent = 'Можно парить';
+        }, 1000);
+    }
 }
 
 async function editPlan() {
