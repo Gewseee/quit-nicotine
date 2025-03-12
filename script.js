@@ -8,13 +8,10 @@ let originalPlan = null;
 
 async function login() {
     const binId = document.getElementById('sync-code').value.trim() || localStorage.getItem('binId');
-    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при любом входе
-    originalPlan = null; // Сбрасываем originalPlan
     if (!binId) {
         showSection('login-section');
         return;
     }
-
     currentBinId = binId;
     let plan = await loadPlan();
     if (!plan || !(plan.frequency > 0 && plan.duration && plan.start && plan.end)) {
@@ -83,43 +80,15 @@ async function createPlan() {
 }
 
 function showPlan(plan) {
-    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку
-    const planSection = document.getElementById('plan-section');
-    planSection.classList.remove('frozen');
     showSection('plan-section');
     document.getElementById('vape-time').textContent = `${plan.duration} минут`;
     document.getElementById('days-left').textContent = plan.daysLeft;
-
-    const now = new Date();
-    const startDate = new Date(plan.start);
-
-    if (now < startDate) {
-        planSection.classList.add('frozen');
-        const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
-        document.getElementById('days-to-start').textContent = daysToStart;
-        document.getElementById('frozen-overlay').classList.remove('hidden');
-        document.querySelectorAll('#plan-actions button:not(.always-active)').forEach(btn => btn.disabled = true);
-        if (nextVapeTimer) clearInterval(nextVapeTimer);
-        document.getElementById('next-vape').textContent = 'Ожидание начала';
-        return;
-    } else {
-        document.getElementById('frozen-overlay').classList.add('hidden');
-        document.querySelectorAll('#plan-actions button').forEach(btn => btn.disabled = false);
-    }
 
     if (nextVapeTimer) clearInterval(nextVapeTimer);
     nextVapeTimer = setInterval(() => {
         const now = new Date();
         const lastVape = plan.lastVapeTime ? new Date(plan.lastVapeTime) : null;
-        let timeLeft;
-
-        if (lastVape) {
-            const elapsed = (now - lastVape) / (1000 * 60);
-            timeLeft = Math.max(0, plan.currentFrequency - elapsed) * 60;
-        } else {
-            timeLeft = plan.currentFrequency * 60;
-        }
-
+        let timeLeft = lastVape ? Math.max(0, plan.currentFrequency - (now - lastVape) / (1000 * 60)) * 60 : plan.currentFrequency * 60;
         document.getElementById('next-vape').textContent = `${Math.floor(timeLeft / 60)} минут ${Math.round(timeLeft % 60)} секунд`;
         if (timeLeft <= 0) document.getElementById('next-vape').textContent = 'Можно парить';
     }, 1000);
@@ -128,7 +97,6 @@ function showPlan(plan) {
 async function editPlan() {
     const plan = await loadPlan();
     originalPlan = { ...plan };
-
     showSection('vape-form');
     document.getElementById('form-title').textContent = 'Настроить план';
     document.getElementById('vape-frequency').value = plan.frequency || 360;
@@ -137,34 +105,22 @@ async function editPlan() {
     document.getElementById('end-date').value = plan.end || '';
     document.getElementById('submit-plan').textContent = 'Сохранить изменения';
     document.getElementById('submit-plan').onclick = createPlan;
-    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при открытии формы
 }
 
 function cancelEdit() {
-    // Показываем модалку только если мы в форме редактирования
-    if (document.getElementById('vape-form').classList.contains('hidden')) return;
-    document.getElementById('cancel-modal').classList.remove('hidden');
-}
-
-function confirmCancel(confirm) {
-    const modal = document.getElementById('cancel-modal');
-    modal.classList.add('hidden'); // Закрываем модалку сразу
-    if (confirm) {
-        if (originalPlan && (originalPlan.frequency > 0 && originalPlan.duration && originalPlan.start && originalPlan.end)) {
-            showPlan(originalPlan); // Возвращаем к плану
-        } else {
-            // Сбрасываем форму до начального состояния
-            document.getElementById('form-title').textContent = 'Расскажи о своей привычке';
-            document.getElementById('vape-frequency').value = '360';
-            document.getElementById('vape-duration').value = '1';
-            document.getElementById('start-date').value = '';
-            document.getElementById('end-date').value = '';
-            document.getElementById('submit-plan').textContent = 'Создать план';
-            document.getElementById('submit-plan').onclick = createPlan;
-            showSection('vape-form');
-        }
-        originalPlan = null; // Сбрасываем originalPlan
+    if (originalPlan && (originalPlan.frequency > 0 && originalPlan.duration && originalPlan.start && originalPlan.end)) {
+        showPlan(originalPlan);
+    } else {
+        document.getElementById('form-title').textContent = 'Расскажи о своей привычке';
+        document.getElementById('vape-frequency').value = '360';
+        document.getElementById('vape-duration').value = '1';
+        document.getElementById('start-date').value = '';
+        document.getElementById('end-date').value = '';
+        document.getElementById('submit-plan').textContent = 'Создать план';
+        document.getElementById('submit-plan').onclick = createPlan;
+        showSection('vape-form');
     }
+    originalPlan = null;
 }
 
 async function startVaping() {
@@ -228,18 +184,15 @@ async function resetPlan() {
 
 function showTips() {
     showSection('tips-section');
-    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при переходе к советам
 }
 
 function backToPlan() {
     showSection('plan-section');
-    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при возврате
 }
 
 function showSection(sectionId) {
     document.querySelectorAll('.container > div').forEach(div => div.classList.add('hidden'));
     document.getElementById(sectionId).classList.remove('hidden');
-    document.getElementById('cancel-modal').classList.add('hidden'); // Скрываем модалку при переключении секций
 }
 
 window.onload = async function() {
