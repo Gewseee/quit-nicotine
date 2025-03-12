@@ -63,7 +63,7 @@ async function createPlan() {
         duration: duration,
         start: start,
         end: end,
-        currentFrequency: frequency, // Исправлено: начальная частота = frequency
+        currentFrequency: frequency,
         daysLeft: days,
         step: step,
         lastVapeTime: null
@@ -87,8 +87,10 @@ function showPlan(plan) {
     const now = new Date();
     const startDate = new Date(plan.start);
 
+    // Пересчитываем дни до начала каждый раз
+    const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+
     if (now < startDate) {
-        const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
         document.getElementById('days-to-start').textContent = daysToStart;
         document.getElementById('frozen-state').classList.remove('hidden');
         document.getElementById('plan-info').classList.add('hidden');
