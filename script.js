@@ -22,6 +22,7 @@ async function login() {
         });
         localStorage.setItem('binId', binId);
         showSection('vape-form');
+        updateFormActions(false);
     } else {
         showPlan(plan);
     }
@@ -84,6 +85,23 @@ function showPlan(plan) {
     document.getElementById('vape-time').textContent = `${plan.duration} минут`;
     document.getElementById('days-left').textContent = plan.daysLeft;
 
+    const now = new Date();
+    const startDate = new Date(plan.start);
+
+    if (now < startDate) {
+        document.getElementById('frozen-state').classList.remove('hidden');
+        const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+        document.getElementById('days-to-start').textContent = daysToStart;
+        document.getElementById('plan-info').classList.add('hidden');
+        document.getElementById('plan-actions').classList.add('hidden');
+        if (nextVapeTimer) clearInterval(nextVapeTimer);
+        return;
+    } else {
+        document.getElementById('frozen-state').classList.add('hidden');
+        document.getElementById('plan-info').classList.remove('hidden');
+        document.getElementById('plan-actions').classList.remove('hidden');
+    }
+
     if (nextVapeTimer) clearInterval(nextVapeTimer);
     nextVapeTimer = setInterval(() => {
         const now = new Date();
@@ -103,8 +121,7 @@ async function editPlan() {
     document.getElementById('vape-duration').value = plan.duration || 1;
     document.getElementById('start-date').value = plan.start || '';
     document.getElementById('end-date').value = plan.end || '';
-    document.getElementById('submit-plan').textContent = 'Сохранить изменения';
-    document.getElementById('submit-plan').onclick = createPlan;
+    updateFormActions(true);
 }
 
 function cancelEdit() {
@@ -116,8 +133,7 @@ function cancelEdit() {
         document.getElementById('vape-duration').value = '1';
         document.getElementById('start-date').value = '';
         document.getElementById('end-date').value = '';
-        document.getElementById('submit-plan').textContent = 'Создать план';
-        document.getElementById('submit-plan').onclick = createPlan;
+        updateFormActions(false);
         showSection('vape-form');
     }
     originalPlan = null;
@@ -133,7 +149,7 @@ async function startVaping() {
 
     vapeTimer = setInterval(() => {
         vapeTimeLeft--;
-        document.getElementById('vape-time').textContent = `${Math.floor(vapeTimeLeft / 60)} минут ${vapeTimeLeft % 60} секунд`;
+        document.getElementById('vape-time').textContent = `Осталось: ${Math.floor(vapeTimeLeft / 60)} минут ${vapeTimeLeft % 60} секунд`;
         if (vapeTimeLeft <= 0) {
             clearInterval(vapeTimer);
             document.getElementById('start-vape').classList.remove('hidden');
@@ -193,6 +209,22 @@ function backToPlan() {
 function showSection(sectionId) {
     document.querySelectorAll('.container > div').forEach(div => div.classList.add('hidden'));
     document.getElementById(sectionId).classList.remove('hidden');
+}
+
+function updateFormActions(isEditing) {
+    const formActions = document.getElementById('form-actions');
+    formActions.innerHTML = '';
+    const submitButton = document.createElement('button');
+    submitButton.textContent = isEditing ? 'Сохранить изменения' : 'Создать план';
+    submitButton.onclick = createPlan;
+    formActions.appendChild(submitButton);
+    if (isEditing) {
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'Отменить изменения';
+        cancelButton.className = 'cancel-btn';
+        cancelButton.onclick = cancelEdit;
+        formActions.appendChild(cancelButton);
+    }
 }
 
 window.onload = async function() {
