@@ -50,8 +50,13 @@ async function createPlan() {
     const start = document.getElementById('start-date').value;
     const end = document.getElementById('end-date').value;
 
+    const now = new Date().toISOString().split('T')[0];
     if (!end || new Date(end) <= new Date(start)) {
         alert('Дата окончания должна быть позже начала!');
+        return;
+    }
+    if (new Date(start) < new Date(now)) {
+        alert('Дата начала не может быть раньше сегодняшнего дня!');
         return;
     }
 
@@ -87,10 +92,8 @@ function showPlan(plan) {
     const now = new Date();
     const startDate = new Date(plan.start);
 
-    // Пересчитываем дни до начала каждый раз
-    const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
-
     if (now < startDate) {
+        const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
         document.getElementById('days-to-start').textContent = daysToStart;
         document.getElementById('frozen-state').classList.remove('hidden');
         document.getElementById('plan-info').classList.add('hidden');
