@@ -6,7 +6,7 @@
     <title>Quit Nicotine</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f0f0f0; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative; }
         input, select { padding: 10px; width: 200px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
         button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
         button:hover { background-color: #45a049; }
@@ -18,9 +18,10 @@
         #plan-info { margin-bottom: 15px; }
         #plan-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
         .form-actions { display: flex; gap: 10px; justify-content: center; }
-        .cancel-btn { background-color: #ff4444; display: flex; align-items: center; gap: 5px; }
-        .cancel-btn::before { content: "←"; font-size: 16px; }
+        .cancel-btn { background-color: #ff4444; }
         .cancel-btn:hover { background-color: #cc0000; }
+        .frozen-state { background: white; position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .frozen-state p { font-size: 24px; color: #333; margin: 20px; }
     </style>
 </head>
 <body>
@@ -47,22 +48,17 @@
             </select>
             <p>Сколько примерно минут длится сеанс?</p>
             <select id="vape-duration">
-                <option value="1">1 минута</option>
-                <option value="2">2 минуты</option>
-                <option value="3">3 минуты</option>
-                <option value="5">5 минут</option>
-                <option value="7">7 минут</option>
-                <option value="10">10 минут</option>
-                <option value="15">15 минут</option>
+                <option value="1">1-2 минуты</option>
+                <option value="2">2-4 минуты</option>
+                <option value="4">4-6 минут</option>
+                <option value="6">6-8 минут</option>
+                <option value="8">8-10 минут</option>
             </select>
             <p>Когда начинаешь?</p>
             <input type="date" id="start-date">
             <p>Когда хочешь бросить?</p>
             <input type="date" id="end-date">
-            <div class="form-actions">
-                <button id="submit-plan" onclick="createPlan()">Создать план</button>
-                <button class="cancel-btn" onclick="cancelEdit()">Отменить изменения</button>
-            </div>
+            <div class="form-actions" id="form-actions"></div>
         </div>
 
         <div id="plan-section" class="hidden">
@@ -76,6 +72,11 @@
                 <button id="start-vape" onclick="startVaping()">Начать парение</button>
                 <button id="stop-vape" onclick="stopVaping()" class="hidden">Закончить сеанс</button>
                 <button onclick="resetPlan()">Сорвался</button>
+                <button onclick="editPlan()">Редактировать план</button>
+                <button onclick="showTips()">Советы</button>
+            </div>
+            <div id="frozen-state" class="hidden frozen-state">
+                <p>До начала курса: <span id="days-to-start"></span> дней</p>
                 <button onclick="editPlan()">Редактировать план</button>
                 <button onclick="showTips()">Советы</button>
             </div>
