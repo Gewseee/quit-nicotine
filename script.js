@@ -92,17 +92,16 @@ function showPlan(plan) {
     const now = new Date();
     const startDate = new Date(plan.start);
 
-    if (now < startDate) {
+    // Показываем заморозку только если startDate строго позже текущей даты
+    if (startDate.getTime() > now.getTime()) {
         const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
         document.getElementById('days-to-start').textContent = daysToStart;
         document.getElementById('frozen-state').classList.remove('hidden');
-        document.getElementById('plan-info').classList.add('hidden');
-        document.getElementById('plan-actions').classList.add('hidden');
+        document.getElementById('plan-active').classList.add('hidden');
         if (nextVapeTimer) clearInterval(nextVapeTimer);
     } else {
         document.getElementById('frozen-state').classList.add('hidden');
-        document.getElementById('plan-info').classList.remove('hidden');
-        document.getElementById('plan-actions').classList.remove('hidden');
+        document.getElementById('plan-active').classList.remove('hidden');
 
         if (nextVapeTimer) clearInterval(nextVapeTimer);
         nextVapeTimer = setInterval(() => {
