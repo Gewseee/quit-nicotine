@@ -89,12 +89,14 @@ function showPlan(plan) {
     document.getElementById('vape-time').textContent = `${plan.duration} минут`;
     document.getElementById('days-left').textContent = plan.daysLeft;
 
-    const now = new Date();
-    const startDate = new Date(plan.start);
+    const now = new Date().toISOString().split('T')[0]; // Только дата без времени
+    const startDate = plan.start; // Дата из плана, тоже без времени
 
-    // Показываем заморозку только если startDate строго позже текущей даты
-    if (startDate.getTime() > now.getTime()) {
-        const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+    // Сравниваем только даты как строки (без времени)
+    if (startDate > now) {
+        const start = new Date(startDate);
+        const current = new Date(now);
+        const daysToStart = Math.ceil((start - current) / (1000 * 60 * 60 * 24));
         document.getElementById('days-to-start').textContent = daysToStart;
         document.getElementById('frozen-state').classList.remove('hidden');
         document.getElementById('plan-active').classList.add('hidden');
