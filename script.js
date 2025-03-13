@@ -50,17 +50,21 @@ async function createPlan() {
     const start = document.getElementById('start-date').value;
     const end = document.getElementById('end-date').value;
 
-    const now = new Date().toISOString().split('T')[0];
-    if (!end || new Date(end) <= new Date(start)) {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Обнуляем время для текущей даты
+    const startDate = new Date(start);
+    startDate.setHours(0, 0, 0, 0); // Обнуляем время для даты начала
+
+    if (!end || new Date(end) <= startDate) {
         alert('Дата окончания должна быть позже начала!');
         return;
     }
-    if (new Date(start) < new Date(now)) {
+    if (startDate < now) {
         alert('Дата начала не может быть раньше сегодняшнего дня!');
         return;
     }
 
-    const days = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24));
+    const days = Math.ceil((new Date(end) - startDate) / (1000 * 60 * 60 * 24));
     const step = frequency / days;
 
     const plan = {
@@ -89,14 +93,14 @@ function showPlan(plan) {
     document.getElementById('vape-time').textContent = `${plan.duration} минут`;
     document.getElementById('days-left').textContent = plan.daysLeft;
 
-    const now = new Date().toISOString().split('T')[0]; // Только дата без времени
-    const startDate = plan.start; // Дата из плана, тоже без времени
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Обнуляем время для текущей даты
+    const startDate = new Date(plan.start);
+    startDate.setHours(0, 0, 0, 0); // Обнуляем время для даты начала
 
-    // Сравниваем только даты как строки (без времени)
+    // Заморозка только если дата начала строго позже текущей
     if (startDate > now) {
-        const start = new Date(startDate);
-        const current = new Date(now);
-        const daysToStart = Math.ceil((start - current) / (1000 * 60 * 60 * 24));
+        const daysToStart = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
         document.getElementById('days-to-start').textContent = daysToStart;
         document.getElementById('frozen-state').classList.remove('hidden');
         document.getElementById('plan-active').classList.add('hidden');
