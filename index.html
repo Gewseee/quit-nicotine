@@ -6,7 +6,7 @@
     <title>Quit Nicotine</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f0f0f0; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         input, select { padding: 10px; width: 200px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
         button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
         button:hover { background-color: #45a049; }
@@ -20,8 +20,8 @@
         .form-actions { display: flex; gap: 10px; justify-content: center; }
         .cancel-btn { background-color: #ff4444; }
         .cancel-btn:hover { background-color: #cc0000; }
-        .frozen-state { background: white; position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .frozen-state p { font-size: 24px; color: #333; margin: 20px; }
+        #freeze-section { text-align: center; }
+        #freeze-message { font-size: 24px; color: #333; margin: 20px; }
     </style>
 </head>
 <body>
@@ -55,7 +55,7 @@
                 <option value="8">8-10 минут</option>
             </select>
             <p>Когда начинаешь?</p>
-            <input type="date" id="start-date" min="2025-03-11">
+            <input type="date" id="start-date" min="2025-03-13">
             <p>Когда хочешь бросить?</p>
             <input type="date" id="end-date">
             <div class="form-actions" id="form-actions"></div>
@@ -63,20 +63,22 @@
 
         <div id="plan-section" class="hidden">
             <h2>Твой план</h2>
-            <div id="plan-info">
-                <p>Следующее парение через: <span id="next-vape">X минут</span></p>
-                <p>Длительность: <span id="vape-time">Y минут</span></p>
-                <p>Дней до конца: <span id="days-left">Z</span></p>
+            <div id="plan-active" class="hidden">
+                <div id="plan-info">
+                    <p>Следующее парение через: <span id="next-vape">X минут</span></p>
+                    <p>Длительность: <span id="vape-time">Y минут</span></p>
+                    <p>Дней до конца: <span id="days-left">Z</span></p>
+                </div>
+                <div id="plan-actions">
+                    <button id="start-vape" onclick="startVaping()">Начать парение</button>
+                    <button id="stop-vape" onclick="stopVaping()" class="hidden">Закончить сеанс</button>
+                    <button onclick="resetPlan()">Сорвался</button>
+                    <button onclick="editPlan()">Редактировать план</button>
+                    <button onclick="showTips()">Советы</button>
+                </div>
             </div>
-            <div id="plan-actions">
-                <button id="start-vape" onclick="startVaping()">Начать парение</button>
-                <button id="stop-vape" onclick="stopVaping()" class="hidden">Закончить сеанс</button>
-                <button onclick="resetPlan()">Сорвался</button>
-                <button onclick="editPlan()">Редактировать план</button>
-                <button onclick="showTips()">Советы</button>
-            </div>
-            <div id="frozen-state" class="hidden frozen-state">
-                <p>До начала курса: <span id="days-to-start"></span> дней</p>
+            <div id="freeze-section" class="hidden">
+                <p id="freeze-message"></p>
                 <button onclick="editPlan()">Редактировать план</button>
                 <button onclick="showTips()">Советы</button>
             </div>
