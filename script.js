@@ -89,7 +89,7 @@ function showPlan(plan) {
     document.getElementById('vape-time').textContent = `${plan.duration} минут`;
     document.getElementById('days-left').textContent = plan.daysLeft;
     document.getElementById('plan-active').classList.remove('hidden');
-    document.getElementById('freeze-section').classList.add('hidden'); // Убеждаемся, что заморозка скрыта
+    document.getElementById('freeze-section').classList.add('hidden');
 
     if (nextVapeTimer) clearInterval(nextVapeTimer);
     nextVapeTimer = setInterval(() => {
@@ -101,21 +101,29 @@ function showPlan(plan) {
     }, 1000);
 }
 
-function checkFreeze(plan) {
-    const now = new Date().toISOString().split('T')[0]; // Сегодня, например "2025-03-13"
-    const start = plan.start; // Дата начала, например "2025-03-13"
+function getRussianDays(days) {
+    if (days % 10 === 1 && days % 100 !== 11) return `${days} день`;
+    if ([2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100)) return `${days} дня`;
+    return `${days} дней`;
+}
 
-    showSection('plan-section'); // Показываем секцию плана в любом случае
+function checkFreeze(plan) {
+    const now = new Date().toISOString().split('T')[0];
+    const start = plan.start;
+
+    showSection('plan-section');
     if (start > now) {
         const startDate = new Date(start);
         const currentDate = new Date(now);
         const daysToStart = Math.ceil((startDate - currentDate) / (1000 * 60 * 60 * 24));
-        document.getElementById('freeze-message').textContent = `Курс начнётся через ${daysToStart} дней`;
+        document.getElementById('freeze-message').textContent = `Курс начнётся через ${getRussianDays(daysToStart)}`;
         document.getElementById('freeze-section').classList.remove('hidden');
         document.getElementById('plan-active').classList.add('hidden');
+        document.getElementById('plan-title').classList.add('hidden'); // Скрываем "Твой план"
     } else {
         document.getElementById('freeze-section').classList.add('hidden');
-        showPlan(plan); // Показываем активный план
+        document.getElementById('plan-title').classList.remove('hidden'); // Показываем "Твой план"
+        showPlan(plan);
     }
 }
 
