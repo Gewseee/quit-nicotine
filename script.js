@@ -24,7 +24,7 @@ async function login() {
         showSection('vape-form');
         updateFormActions(false);
     } else {
-        checkFreeze(plan); // Проверяем заморозку перед показом плана
+        checkFreeze(plan);
     }
 }
 
@@ -81,15 +81,16 @@ async function createPlan() {
     });
 
     originalPlan = null;
-    checkFreeze(plan); // Проверяем заморозку после создания
+    checkFreeze(plan);
 }
 
 function showPlan(plan) {
     showSection('plan-section');
     document.getElementById('vape-time').textContent = `${plan.duration} минут`;
     document.getElementById('days-left').textContent = plan.daysLeft;
-
     document.getElementById('plan-active').classList.remove('hidden');
+    document.getElementById('freeze-section').classList.add('hidden'); // Убеждаемся, что заморозка скрыта
+
     if (nextVapeTimer) clearInterval(nextVapeTimer);
     nextVapeTimer = setInterval(() => {
         const now = new Date();
@@ -104,6 +105,7 @@ function checkFreeze(plan) {
     const now = new Date().toISOString().split('T')[0]; // Сегодня, например "2025-03-13"
     const start = plan.start; // Дата начала, например "2025-03-13"
 
+    showSection('plan-section'); // Показываем секцию плана в любом случае
     if (start > now) {
         const startDate = new Date(start);
         const currentDate = new Date(now);
@@ -113,7 +115,7 @@ function checkFreeze(plan) {
         document.getElementById('plan-active').classList.add('hidden');
     } else {
         document.getElementById('freeze-section').classList.add('hidden');
-        showPlan(plan); // Показываем план, если заморозки нет
+        showPlan(plan); // Показываем активный план
     }
 }
 
@@ -186,7 +188,7 @@ async function updatePlan(markVapeTime = false) {
         body: JSON.stringify(plan)
     });
 
-    checkFreeze(plan); // Проверяем заморозку после обновления
+    checkFreeze(plan);
 }
 
 async function resetPlan() {
