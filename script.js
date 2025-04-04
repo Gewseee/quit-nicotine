@@ -47,27 +47,32 @@ async function loadPlan() {
 async function createPlan() {
     const frequency = parseInt(document.getElementById('vape-frequency').value);
     const duration = parseInt(document.getElementById('vape-duration').value);
-    const start = document.getElementById('start-date').value;
+    const start = document.getElementById('start-date').value; // Например, "2025-04-05"
     const end = document.getElementById('end-date').value;
 
     const now = new Date();
     const startDateTime = new Date(start); // Например, 2025-04-05 00:00:00
     const endDateTime = new Date(end);
 
-    // Если выбрана сегодняшняя дата, устанавливаем текущее время
+    // Обнуляем время для проверки только дат
     const today = new Date(now.toISOString().split('T')[0]); // 2025-04-05 00:00:00
-    if (startDateTime.toISOString().split('T')[0] === today.toISOString().split('T')[0]) {
-        startDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
-    } else {
-        // Для будущих дат оставляем 00:00:00 или можно настроить по-другому
-        startDateTime.setHours(0, 0, 0, 0);
-    }
+    const startDateOnly = new Date(startDateTime.toISOString().split('T')[0]); // 2025-04-05 00:00:00
 
-    // Проверка: дата начала не может быть раньше сегодняшнего дня
-    if (startDateTime < today) {
+    // Проверка: дата начала не раньше сегодняшнего дня (включительно)
+    if (startDateOnly < today) {
         alert('Дата начала не может быть раньше сегодняшнего дня!');
         return;
     }
+
+    // Если это сегодня, добавляем текущее время
+    if (startDateOnly.getTime() === today.getTime()) {
+        startDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+    } else {
+        // Для будущих дат начинаем с 00:00:00
+        startDateTime.setHours(0, 0, 0, 0);
+    }
+
+    // Проверка: конец позже начала
     if (endDateTime <= startDateTime) {
         alert('Дата окончания должна быть позже начала!');
         return;
@@ -79,7 +84,7 @@ async function createPlan() {
     const plan = {
         frequency: frequency,
         duration: duration,
-        start: startDateTime.toISOString(),
+        start: startDateTime.toISOString(), // Сохраняем с часами и минутами
         end: endDateTime.toISOString(),
         currentFrequency: frequency,
         minutesLeft: minutesBetween,
