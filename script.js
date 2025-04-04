@@ -51,16 +51,25 @@ async function createPlan() {
     const end = document.getElementById('end-date').value;
 
     const now = new Date();
-    const startDateTime = new Date(start); // Добавляем текущее время к дате начала
-    startDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+    const startDateTime = new Date(start); // Например, 2025-04-05 00:00:00
     const endDateTime = new Date(end);
 
-    if (endDateTime <= startDateTime) {
-        alert('Дата окончания должна быть позже начала!');
+    // Если выбрана сегодняшняя дата, устанавливаем текущее время
+    const today = new Date(now.toISOString().split('T')[0]); // 2025-04-05 00:00:00
+    if (startDateTime.toISOString().split('T')[0] === today.toISOString().split('T')[0]) {
+        startDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+    } else {
+        // Для будущих дат оставляем 00:00:00 или можно настроить по-другому
+        startDateTime.setHours(0, 0, 0, 0);
+    }
+
+    // Проверка: дата начала не может быть раньше сегодняшнего дня
+    if (startDateTime < today) {
+        alert('Дата начала не может быть раньше сегодняшнего дня!');
         return;
     }
-    if (startDateTime < now) {
-        alert('Дата начала не может быть раньше текущего момента!');
+    if (endDateTime <= startDateTime) {
+        alert('Дата окончания должна быть позже начала!');
         return;
     }
 
@@ -70,7 +79,7 @@ async function createPlan() {
     const plan = {
         frequency: frequency,
         duration: duration,
-        start: startDateTime.toISOString(), // Сохраняем с часами и минутами
+        start: startDateTime.toISOString(),
         end: endDateTime.toISOString(),
         currentFrequency: frequency,
         minutesLeft: minutesBetween,
