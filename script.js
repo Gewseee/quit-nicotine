@@ -50,26 +50,30 @@ async function createPlan() {
     const start = document.getElementById('start-date').value;
     const end = document.getElementById('end-date').value;
 
-    const now = new Date().toISOString().split('T')[0];
-    if (!end || new Date(end) <= new Date(start)) {
+    const now = new Date();
+    const startDateTime = new Date(start); // Добавляем текущее время к дате начала
+    startDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+    const endDateTime = new Date(end);
+
+    if (endDateTime <= startDateTime) {
         alert('Дата окончания должна быть позже начала!');
         return;
     }
-    if (new Date(start) < new Date(now)) {
-        alert('Дата начала не может быть раньше сегодняшнего дня!');
+    if (startDateTime < now) {
+        alert('Дата начала не может быть раньше текущего момента!');
         return;
     }
 
-    const days = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24));
-    const step = frequency / days;
+    const minutesBetween = Math.ceil((endDateTime - startDateTime) / (1000 * 60));
+    const step = frequency / (minutesBetween / (24 * 60));
 
     const plan = {
         frequency: frequency,
         duration: duration,
-        start: start,
-        end: end,
+        start: startDateTime.toISOString(), // Сохраняем с часами и минутами
+        end: endDateTime.toISOString(),
         currentFrequency: frequency,
-        daysLeft: days,
+        minutesLeft: minutesBetween,
         step: step,
         lastVapeTime: null
     };
@@ -87,7 +91,7 @@ async function createPlan() {
 function showPlan(plan) {
     showSection('plan-section');
     document.getElementById('vape-time').textContent = `${plan.duration} минут`;
-    document.getElementById('days-left').textContent = plan.daysLeft;
+    document.getElementById('days-left').textContent = Math.ceil(plan.minutesLeft / (24 * 60));
     document.getElementById('plan-active').classList.remove('hidden');
     document.getElementById('freeze-section').classList.add('hidden');
 
@@ -95,9 +99,9 @@ function showPlan(plan) {
     nextVapeTimer = setInterval(() => {
         const now = new Date();
         const lastVape = plan.lastVapeTime ? new Date(plan.lastVapeTime) : null;
-        let timeLeft = lastVape ? Math.max(0, plan.currentFrequency - (now - lastVape) / (1000 * 60)) * 60 : plan.currentFrequency * 60;
-        document.getElementById('next-vape').textContent = `${Math.floor(timeLeft / 60)} минут ${Math.round(timeLeft % 60)} секунд`;
-        if (timeLeft <= 0) document.getElementById('next-vape').textContent = 'Можно парить';
+        let minutesUntilNext = lastVape ? Math.max(0, plan.currentFrequency - (now - lastVape) / (1000 * 60)) : plan.currentFrequency;
+        let secondsLeft = Math.round(minutesUntilNext * 60);
+        document.getElementById('next-vape').textContent = secondsLeft > 0 ? `${Math.floor(secondsLeft / 60)} мин ${secondsLeft % 60} сек` : 'Можно парить';
     }, 1000);
 }
 
@@ -108,21 +112,22 @@ function getRussianDays(days) {
 }
 
 function checkFreeze(plan) {
-    const now = new Date().toISOString().split('T')[0];
-    const start = plan.start;
+    const now = new Date();
+    const start = new Date(plan.start); // Теперь с часами и минутами
 
     showSection('plan-section');
     if (start > now) {
-        const startDate = new Date(start);
-        const currentDate = new Date(now);
-        const daysToStart = Math.ceil((startDate - currentDate) / (1000 * 60 * 60 * 24));
-        document.getElementById('freeze-message').textContent = `Курс начнётся через ${getRussianDays(daysToStart)}`;
+        const minutesToStart = Math.ceil((start - now) / (1000 * 60));
+        const daysToStart = Math.ceil(minutesToStart / (24 * 60));
+        const hoursToStart = Math.floor(minutesToStart / 60);
+        const remainingMinutes = minutesToStart % 60;
+        document.getElementById('freeze-message').textContent = `Курс начнётся через ${getRussianDays(daysToStart)} (${hoursToStart} ч ${remainingMinutes} мин)`;
         document.getElementById('freeze-section').classList.remove('hidden');
         document.getElementById('plan-active').classList.add('hidden');
-        document.getElementById('plan-title').classList.add('hidden'); // Скрываем "Твой план"
+        document.getElementById('plan-title').classList.add('hidden');
     } else {
         document.getElementById('freeze-section').classList.add('hidden');
-        document.getElementById('plan-title').classList.remove('hidden'); // Показываем "Твой план"
+        document.getElementById('plan-title').classList.remove('hidden');
         showPlan(plan);
     }
 }
@@ -134,8 +139,8 @@ async function editPlan() {
     document.getElementById('form-title').textContent = 'Настроить план';
     document.getElementById('vape-frequency').value = plan.frequency || 360;
     document.getElementById('vape-duration').value = plan.duration || 1;
-    document.getElementById('start-date').value = plan.start || '';
-    document.getElementById('end-date').value = plan.end || '';
+    document.getElementById('start-date').value = plan.start ? plan.start.split('T')[0] : '';
+    document.getElementById('end-date').value = plan.end ? plan.end.split('T')[0] : '';
     updateFormActions(true);
 }
 
@@ -186,9 +191,9 @@ async function updatePlan(markVapeTime = false) {
     if (markVapeTime) {
         plan.lastVapeTime = new Date().toISOString();
         plan.currentFrequency += plan.step;
-        plan.daysLeft--;
+        plan.minutesLeft -= Math.ceil((new Date() - new Date(plan.lastVapeTime)) / (1000 * 60));
     }
-    if (plan.daysLeft <= 0) plan.currentFrequency = Infinity;
+    if (plan.minutesLeft <= 0) plan.currentFrequency = Infinity;
 
     await fetch(`${BASE_URL}/${currentBinId}`, {
         method: 'PUT',
@@ -201,15 +206,13 @@ async function updatePlan(markVapeTime = false) {
 
 async function resetPlan() {
     const plan = await loadPlan();
-    plan.daysLeft += 1;
-    plan.end = new Date(new Date(plan.end).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
+    plan.minutesLeft += 24 * 60;
+    plan.end = new Date(new Date(plan.end).getTime() + 24 * 60 * 60 * 1000).toISOString();
     await fetch(`${BASE_URL}/${currentBinId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
         body: JSON.stringify(plan)
     });
-
     checkFreeze(plan);
 }
 
