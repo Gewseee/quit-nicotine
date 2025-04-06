@@ -47,32 +47,27 @@ async function loadPlan() {
 async function createPlan() {
     const frequency = parseInt(document.getElementById('vape-frequency').value);
     const duration = parseInt(document.getElementById('vape-duration').value);
-    const start = document.getElementById('start-date').value; // Например, "2025-04-05"
+    const start = document.getElementById('start-date').value;
     const end = document.getElementById('end-date').value;
 
     const now = new Date();
-    const startDateTime = new Date(start); // Например, 2025-04-05 00:00:00
+    const startDateTime = new Date(start);
     const endDateTime = new Date(end);
 
-    // Обнуляем время для проверки только дат
-    const today = new Date(now.toISOString().split('T')[0]); // 2025-04-05 00:00:00
-    const startDateOnly = new Date(startDateTime.toISOString().split('T')[0]); // 2025-04-05 00:00:00
+    const today = new Date(now.toISOString().split('T')[0]);
+    const startDateOnly = new Date(startDateTime.toISOString().split('T')[0]);
 
-    // Проверка: дата начала не раньше сегодняшнего дня (включительно)
     if (startDateOnly < today) {
         alert('Дата начала не может быть раньше сегодняшнего дня!');
         return;
     }
 
-    // Если это сегодня, добавляем текущее время
     if (startDateOnly.getTime() === today.getTime()) {
         startDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
     } else {
-        // Для будущих дат начинаем с 00:00:00
         startDateTime.setHours(0, 0, 0, 0);
     }
 
-    // Проверка: конец позже начала
     if (endDateTime <= startDateTime) {
         alert('Дата окончания должна быть позже начала!');
         return;
@@ -84,7 +79,7 @@ async function createPlan() {
     const plan = {
         frequency: frequency,
         duration: duration,
-        start: startDateTime.toISOString(), // Сохраняем с часами и минутами
+        start: startDateTime.toISOString(),
         end: endDateTime.toISOString(),
         currentFrequency: frequency,
         minutesLeft: minutesBetween,
@@ -127,7 +122,7 @@ function getRussianDays(days) {
 
 function checkFreeze(plan) {
     const now = new Date();
-    const start = new Date(plan.start); // Теперь с часами и минутами
+    const start = new Date(plan.start);
 
     showSection('plan-section');
     if (start > now) {
@@ -216,6 +211,13 @@ async function updatePlan(markVapeTime = false) {
     });
 
     checkFreeze(plan);
+}
+
+async function confirmReset() {
+    const confirmed = confirm('Ты точно сорвался? Это добавит 1 день к плану.');
+    if (confirmed) {
+        await resetPlan();
+    }
 }
 
 async function resetPlan() {
