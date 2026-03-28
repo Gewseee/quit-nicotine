@@ -5,111 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quit Nicotine Assistant</title>
     <style>
-        /* Основные стили */
         :root {
             --primary: #4CAF50;
-            --primary-dark: #45a049;
             --danger: #ff4444;
-            --danger-dark: #cc0000;
             --bg: #f4f7f6;
-            --text: #333;
         }
-
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 20px; background-color: var(--bg); color: var(--text); }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        
-        /* Элементы управления */
-        input, select { padding: 12px; width: 100%; box-sizing: border-box; margin: 10px 0; border: 2px solid #eee; border-radius: 8px; font-size: 16px; transition: border-color 0.3s; }
-        input:focus { border-color: var(--primary); outline: none; }
-        
-        button { padding: 12px 24px; background-color: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; width: 100%; margin: 8px 0; transition: transform 0.1s, background-color 0.3s; }
-        button:hover { background-color: var(--primary-dark); }
-        button:active { transform: scale(0.98); }
-        .secondary-btn { background-color: #6c757d; }
-        .cancel-btn { background-color: var(--danger); }
-        .cancel-btn:hover { background-color: var(--danger-dark); }
-
-        /* Вспомогательные классы */
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; background-color: var(--bg); color: #333; }
+        .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative; }
+        input, select { padding: 12px; width: 100%; box-sizing: border-box; margin: 10px 0; border: 2px solid #eee; border-radius: 8px; font-size: 16px; }
+        button { padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; margin: 8px 0; }
+        .secondary-btn { background: #6c757d; }
+        .cancel-btn { background: var(--danger); }
         .hidden { display: none; }
-        .status-badge { font-size: 12px; padding: 4px 8px; border-radius: 4px; background: #eee; display: inline-block; margin-bottom: 20px; }
-        .loading { opacity: 0.5; pointer-events: none; }
+        .status-badge { font-size: 11px; color: #999; margin-bottom: 10px; }
+        #countdown { font-size: 48px; font-weight: bold; margin: 20px 0; }
         
-        /* Сетка для кнопок в плане */
-        .grid-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
-        .full-width { grid-column: span 2; }
+        /* Плашка куки */
+        .cookie-banner {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: #333; color: white; padding: 15px 25px; border-radius: 50px;
+            display: flex; align-items: center; gap: 15px; z-index: 1000; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .cookie-banner button { width: auto; margin: 0; padding: 5px 15px; background: white; color: #333; font-size: 13px; }
     </style>
 </head>
 <body>
 
-    <div class="container" id="main-app">
-        <div id="cloud-status" class="status-badge">Локальный режим</div>
-        
+    <div class="container" id="app-container">
+        <div id="cloud-info" class="status-badge">Ожидание входа...</div>
         <h1>Quit Nicotine</h1>
 
-        <!-- Секция входа / Синхронизации -->
+        <!-- Вход -->
         <div id="login-section">
-            <p>Введите ваш <b>Bin ID</b> для синхронизации:</p>
-            <input type="text" id="sync-code" placeholder="67d00b9a8960c979a56f74c4...">
-            <button onclick="app.login()">Войти и загрузить данные</button>
-            <p style="font-size: 0.8em; color: #888;">Нет ID? Оставьте поле пустым и просто начните работу.</p>
+            <p>Введите ваш персональный код:</p>
+            <input type="text" id="short-code" placeholder="Например: 777">
+            <button onclick="app.handleLogin()">Войти</button>
         </div>
 
-        <!-- Форма настройки привычки -->
+        <!-- Настройка плана -->
         <div id="vape-form" class="hidden">
-            <h2>Настройка плана</h2>
-            <p>Частота использования:</p>
+            <h2>Настроить план</h2>
             <select id="vape-frequency">
-                <option value="360">Раз в 6+ часов</option>
-                <option value="90" selected>Раз в 1-2 часа</option>
+                <option value="90">Раз в 1-2 часа</option>
                 <option value="20">Раз в 15-30 минут</option>
+                <option value="360">Раз в 6+ часов</option>
             </select>
-
-            <p>Длительность сеанса (мин):</p>
-            <input type="number" id="vape-duration" value="3" min="1" max="30">
-
-            <p>Когда начали бросать?</p>
+            <input type="number" id="vape-duration" placeholder="Длительность (мин)" value="3">
+            <p>Начало:</p>
             <input type="date" id="start-date">
-            
-            <p>Целевая дата отказа:</p>
+            <p>Конец:</p>
             <input type="date" id="end-date">
-
-            <button onclick="app.saveSettings()">Сохранить и начать</button>
-            <button class="secondary-btn" onclick="app.showPlan()">Отмена</button>
+            <button onclick="app.saveNewPlan()">Запустить программу</button>
         </div>
 
-        <!-- Основной экран плана -->
+        <!-- Экран таймера -->
         <div id="plan-section" class="hidden">
-            <div id="timer-display">
-                <h2 id="timer-label">До следующего сеанса:</h2>
-                <div id="countdown" style="font-size: 48px; font-weight: bold; margin: 20px 0; color: var(--primary);">00:00</div>
-            </div>
-
-            <div id="plan-info">
-                <p>Сеанс: <span id="info-duration">0</span> мин | Осталось дней: <span id="info-days">0</span></p>
-            </div>
-
-            <div class="grid-buttons">
-                <button id="vape-action-btn" class="full-width" onclick="app.handleVapeAction()">Начать сеанс</button>
-                <button class="secondary-btn" onclick="app.editSettings()">Настройки</button>
-                <button class="secondary-btn" onclick="app.showTips()">Советы</button>
-                <button class="cancel-btn full-width" onclick="app.confirmReset()">Я сорвался</button>
-            </div>
-        </div>
-
-        <!-- Секция советов -->
-        <div id="tips-section" class="hidden">
-            <h2>Как справиться?</h2>
-            <div style="text-align: left; line-height: 1.6;">
-                <p>💧 Пейте больше чистой воды.</p>
-                <p>🍬 Используйте жвачку или леденцы.</p>
-                <p>🧘 Сделайте 10 глубоких вдохов.</p>
-                <p>🚶 Пройдитесь быстрым шагом 5 минут.</p>
-            </div>
-            <button onclick="app.showPlan()">Назад к таймеру</button>
+            <div id="countdown">00:00</div>
+            <p>Дней до конца: <span id="info-days">0</span></p>
+            <button id="action-btn" onclick="app.startSession()">Начать парение</button>
+            <button class="secondary-btn" onclick="app.editPlan()">Настройки</button>
+            <button class="cancel-btn" onclick="app.resetProgress()">Я сорвался</button>
         </div>
     </div>
 
-    <!-- Здесь будет твой script.js -->
+    <!-- Плашка куки -->
+    <div id="cookie-notice" class="cookie-banner hidden">
+        <span>Мы используем данные для сохранения прогресса</span>
+        <button onclick="app.acceptCookies()">Ок</button>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
