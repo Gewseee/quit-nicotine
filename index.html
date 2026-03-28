@@ -3,89 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quit Nicotine</title>
+    <title>Quit Nicotine Assistant</title>
     <style>
-        :root { --primary: #4CAF50; --danger: #ff4444; --bg: #f0f0f0; }
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: var(--bg); }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        input, select { padding: 10px; width: 100%; max-width: 300px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        button { padding: 10px 20px; background-color: var(--primary); color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; transition: 0.2s; }
-        button:hover { opacity: 0.8; }
-        .secondary-btn { background-color: #666; }
-        .cancel-btn { background-color: var(--danger); }
+        :root { --primary: #4CAF50; --danger: #ff4444; --bg: #f4f7f6; --text: #333; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; background-color: var(--bg); color: var(--text); }
+        .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        input, select { padding: 12px; width: 100%; box-sizing: border-box; margin: 10px 0; border: 2px solid #eee; border-radius: 8px; font-size: 16px; }
+        button { padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; margin: 8px 0; transition: 0.3s; }
+        button:hover { opacity: 0.9; transform: scale(0.99); }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .secondary-btn { background: #6c757d; }
+        .cancel-btn { background: var(--danger); }
         .hidden { display: none; }
-        h1, h2 { color: #333; }
-        p { color: #666; }
-        #countdown { font-size: 32px; font-weight: bold; margin: 15px 0; }
-        .cookie-banner { position: fixed; bottom: 0; left: 0; right: 0; background: #333; color: white; padding: 15px; z-index: 1000; }
+        .status-badge { font-size: 11px; color: #999; margin-bottom: 15px; }
+        #countdown { font-size: 54px; font-weight: bold; margin: 20px 0; color: var(--primary); }
+        .cookie-banner { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 25px; border-radius: 50px; display: flex; align-items: center; gap: 15px; z-index: 1000; font-size: 13px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .cookie-banner button { width: auto; margin: 0; padding: 5px 15px; background: white; color: #333; }
     </style>
 </head>
 <body>
-    <div class="container" id="main-app">
-        <h1>Бросаем никотин</h1>
+    <div class="container" id="app-container">
+        <div id="cloud-info" class="status-badge">Требуется вход</div>
+        <h1>Quit Nicotine</h1>
 
-        <!-- ЛОГИН -->
+        <!-- ВХОД -->
         <div id="login-section">
-            <p>Введи свой персональный код:</p>
+            <p>Введите ваш персональный код:</p>
             <input type="text" id="short-code" placeholder="Например: 777">
-            <button onclick="app.handleLogin()">Войти</button>
-            <button class="secondary-btn" onclick="app.createNewUser()">Создать новый профиль</button>
+            <button onclick="app.handleLogin()">Войти в профиль</button>
+            <button class="secondary-btn" onclick="app.createNewUser()">Создать новый профи|ь</button>
         </div>
 
-        <!-- ФОРМА (Твои частоты) -->
+        <!-- ФОРМА ПЛАНА -->
         <div id="vape-form" class="hidden">
-            <h2 id="form-title">Расскажи о своей привычке</h2>
-            <p>Через сколько времени тебе хочется парить?</p>
+            <h2>Настроить план</h2>
+            <p>Частота сейчас:</p>
             <select id="vape-frequency">
-                <option value="360">Очень редко (раз в 6+ часов)</option>
-                <option value="240">Не часто (раз в 3-5 часов)</option>
-                <option value="90" selected>Средне (раз в 1-2 часа)</option>
-                <option value="45">Часто (раз в 30-60 минут)</option>
-                <option value="20">Очень часто (раз в 15-30 минут)</option>
-                <option value="10">Почти всегда (раз в 5-15 минут)</option>
+                <option value="360">Раз в 6+ часов</option>
+                <option value="90" selected>Раз в 1-2 часа</option>
+                <option value="20">Раз в 15-30 минут</option>
             </select>
-            <p>Длительность сеанса (минут):</p>
-            <input type="number" id="vape-duration" value="3" min="1">
+            <p>Длительность сеанса (мин):</p>
+            <input type="number" id="vape-duration" value="3">
             <p>Дата начала:</p>
             <input type="date" id="start-date">
-            <p>Когда хочешь бросить полностью?</p>
+            <p>Дата окончания:</p>
             <input type="date" id="end-date">
-            <button onclick="app.saveNewPlan()">Запустить план</button>
+            <button onclick="app.saveNewPlan()">Запустить программу</button>
         </div>
 
-        <!-- ПЛАН -->
+        <!-- ТАЙМЕР -->
         <div id="plan-section" class="hidden">
             <div id="plan-active">
-                <p>Следующее парение через:</p>
                 <div id="countdown">00:00</div>
-                <p>Длительность: <span id="info-duration">0</span> мин</p>
-                <p>Дней до конца: <span id="info-days">0</span></p>
-                <button id="action-btn" onclick="app.startSession()">Начать парение</button>
-                <button class="secondary-btn" onclick="app.editPlan()">Редактировать</button>
-                <button onclick="app.showTips()">Советы</button>
-                <button class="cancel-btn" onclick="app.resetProgress()">Сорвался</button>
+                <p>Дней до конца: <span id="info-days">0</span> | Сеанс: <span id="info-dur">0</span> мин</p>
+                <button id="action-btn" onclick="app.startSession()">Начать сеанс</button>
+                <button class="secondary-btn" onclick="app.editPlan()">Изменить план</button>
+                <button class="secondary-btn" onclick="app.showTips()">Советы</button>
+                <button class="cancel-btn" onclick="app.resetProgress()">Я сорвался</button>
             </div>
-            
-            <!-- Твоя ЗАМОРОЗКА -->
+            <!-- ЗАМОРОЗКА -->
             <div id="freeze-section" class="hidden">
                 <h2 id="freeze-message"></h2>
-                <button class="secondary-btn" onclick="app.editPlan()">Изменить дату</button>
+                <button class="secondary-btn" onclick="app.editPlan()">Изменить даты</button>
             </div>
         </div>
 
-        <!-- Твои СОВЕТЫ -->
+        <!-- СОВЕТЫ -->
         <div id="tips-section" class="hidden">
             <h2>Советы</h2>
-            <p>1. Хочется парить? Выпей воды.</p>
-            <p>2. Жвачка займет рот и руки.</p>
-            <p>3. Прогуляйся 5 минут.</p>
-            <p>4. Дыши глубже — это снимает стресс.</p>
-            <button onclick="app.showPlanSection()">Назад</button>
+            <p>💧 Пейте воду.</p>
+            <p>🍬 Используйте жвачку.</p>
+            <p>🧘 Сделайте 10 глубоких вдохов.</p>
+            <button onclick="app.showSection('plan-section')">Назад</button>
         </div>
     </div>
 
     <div id="cookie-notice" class="cookie-banner hidden">
-        Мы используем данные для сохранения прогресса
+        <span>Мы используем данные для сохранения прогресса</span>
         <button onclick="app.acceptCookies()">Ок</button>
     </div>
 
