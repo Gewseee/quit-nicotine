@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quit Nicotine Assistant</title>
     <style>
-        :root { --primary: #4CAF50; --danger: #ff4444; --bg: #f4f7f6; --text: #333; }
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; background-color: var(--bg); color: var(--text); }
+        :root { --primary: #4CAF50; --danger: #ff4444; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; background-color: var(--bg); color: #333; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         input, select { padding: 12px; width: 100%; box-sizing: border-box; margin: 10px 0; border: 2px solid #eee; border-radius: 8px; font-size: 16px; }
         button { padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; margin: 8px 0; transition: 0.3s; }
@@ -26,64 +26,52 @@
         <div id="cloud-info" class="status-badge">Требуется вход</div>
         <h1>Quit Nicotine</h1>
 
-        <!-- ВХОД -->
         <div id="login-section">
             <p>Введите ваш персональный код:</p>
             <input type="text" id="short-code" placeholder="Например: 777">
-            <button onclick="app.handleLogin()">Войти в профиль</button>
-            <button class="secondary-btn" onclick="app.createNewUser()">Создать новый профи|ь</button>
+            <button onclick="app.handleLogin()">Войти</button>
+            <button class="secondary-btn" onclick="app.createNewUser()">Создать новый профиль</button>
         </div>
 
-        <!-- ФОРМА ПЛАНА -->
         <div id="vape-form" class="hidden">
             <h2>Настроить план</h2>
-            <p>Частота сейчас:</p>
             <select id="vape-frequency">
-                <option value="360">Раз в 6+ часов</option>
                 <option value="90" selected>Раз в 1-2 часа</option>
                 <option value="20">Раз в 15-30 минут</option>
+                <option value="360">Раз в 6+ часов</option>
             </select>
-            <p>Длительность сеанса (мин):</p>
-            <input type="number" id="vape-duration" value="3">
-            <p>Дата начала:</p>
-            <input type="date" id="start-date">
-            <p>Дата окончания:</p>
-            <input type="date" id="end-date">
-            <button onclick="app.saveNewPlan()">Запустить программу</button>
+            <input type="number" id="vape-duration" value="3" placeholder="Мин. сеанса">
+            <p>Старт:</p><input type="date" id="start-date">
+            <p>Финиш:</p><input type="date" id="end-date">
+            <button onclick="app.saveNewPlan()">Запустить</button>
         </div>
 
-        <!-- ТАЙМЕР -->
         <div id="plan-section" class="hidden">
             <div id="plan-active">
                 <div id="countdown">00:00</div>
                 <p>Дней до конца: <span id="info-days">0</span> | Сеанс: <span id="info-dur">0</span> мин</p>
-                <button id="action-btn" onclick="app.startSession()">Начать сеанс</button>
-                <button class="secondary-btn" onclick="app.editPlan()">Изменить план</button>
-                <button class="secondary-btn" onclick="app.showTips()">Советы</button>
-                <button class="cancel-btn" onclick="app.resetProgress()">Я сорвался</button>
+                <button id="action-btn" onclick="app.startSession()">Начать парение</button>
+                <button class="secondary-btn" onclick="app.editPlan()">Настройки</button>
+                <button class="secondary-btn" onclick="app.showSection('tips-section')">Советы</button>
+                <button class="cancel-btn" onclick="app.resetProgress()">Сорвался</button>
             </div>
-            <!-- ЗАМОРОЗКА -->
             <div id="freeze-section" class="hidden">
                 <h2 id="freeze-message"></h2>
-                <button class="secondary-btn" onclick="app.editPlan()">Изменить даты</button>
+                <button class="secondary-btn" onclick="app.editPlan()">Изменить дату</button>
             </div>
         </div>
 
-        <!-- СОВЕТЫ -->
         <div id="tips-section" class="hidden">
             <h2>Советы</h2>
-            <p>💧 Пейте воду.</p>
-            <p>🍬 Используйте жвачку.</p>
-            <p>🧘 Сделайте 10 глубоких вдохов.</p>
+            <p>💧 Пейте воду. 🍬 Жвачка. 🧘 Глубокое дыхание.</p>
             <button onclick="app.showSection('plan-section')">Назад</button>
         </div>
     </div>
 
     <div id="cookie-notice" class="cookie-banner hidden">
-        <span>Мы используем данные для сохранения прогресса</span>
+        <span>Данные сохраняются для прогресса</span>
         <button onclick="app.acceptCookies()">Ок</button>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>
