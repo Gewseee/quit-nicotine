@@ -1,266 +1,232 @@
 const API_KEY = '$2a$10$x64cmBVcoKyTf.0mDg7lJePkx.fG5KXYzOGshiFyICAzw9nvEKYla';
 const BASE_URL = 'https://api.jsonbin.io/v3/b';
+const MIN = 60000, DAY = 86400000;
+const TARGET_INTERVAL = 1440;   // к дате отказа пауза между сеансами растёт до суток
+const RING = 603.2;             // длина окружности кольца (2π·96)
 
-let currentBinId = null;
-let vapeTimer = null;
-let nextVapeTimer = null;
-let originalPlan = null;
+const $ = id => document.getElementById(id);
+let binId = localStorage.getItem('binId');
+let plan = null;
+let sessionEnd = Number(localStorage.getItem('sessionEnd')) || 0;
+let editing = false;
 
-async function login() {
-    const binId = document.getElementById('sync-code').value.trim() || localStorage.getItem('binId');
-    if (!binId) {
-        showSection('login-section');
-        return;
-    }
-    currentBinId = binId;
-    let plan = await loadPlan();
-    if (!plan || !(plan.frequency > 0 && plan.duration && plan.start && plan.end)) {
-        await fetch(`${BASE_URL}/${currentBinId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify({ frequency: 0, duration: 0, start: '', end: '', lastVapeTime: null })
-        });
-        localStorage.setItem('binId', binId);
-        showSection('vape-form');
-        updateFormActions(false);
-    } else {
-        checkFreeze(plan);
-    }
+/* ---------- API ---------- */
+async function api(method, body) {
+  const url = `${BASE_URL}/${binId}${method === 'GET' ? '/latest' : ''}`;
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) throw new Error(`Ошибка сервера ${res.status}`);
+  return method === 'GET' ? (await res.json()).record : res.json();
 }
 
-async function loadPlan() {
-    try {
-        const response = await fetch(`${BASE_URL}/${currentBinId}/latest`, {
-            headers: { 'X-Master-Key': API_KEY }
-        });
-        if (response.ok) {
-            const data = await response.json();
-            return data.record || {};
-        }
-        return {};
-    } catch (error) {
-        alert('Ошибка загрузки плана: ' + error.message);
-        return {};
-    }
+async function save() {
+  try { await api('PUT', plan); }
+  catch (e) { toast('Не удалось сохранить: ' + e.message); }
 }
 
-async function createPlan() {
-    const frequency = parseInt(document.getElementById('vape-frequency').value);
-    const duration = parseInt(document.getElementById('vape-duration').value);
-    const start = document.getElementById('start-date').value;
-    const end = document.getElementById('end-date').value;
+/* ---------- Логика плана ---------- */
+const isValid = p => p && p.frequency > 0 && p.duration > 0 && p.start && p.end;
 
-    const now = new Date();
-    const startDateTime = new Date(start);
-    const endDateTime = new Date(end);
-
-    const today = new Date(now.toISOString().split('T')[0]);
-    const startDateOnly = new Date(startDateTime.toISOString().split('T')[0]);
-
-    if (startDateOnly < today) {
-        alert('Дата начала не может быть раньше сегодняшнего дня!');
-        return;
-    }
-
-    if (startDateOnly.getTime() === today.getTime()) {
-        startDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
-    } else {
-        startDateTime.setHours(0, 0, 0, 0);
-    }
-
-    if (endDateTime <= startDateTime) {
-        alert('Дата окончания должна быть позже начала!');
-        return;
-    }
-
-    const minutesBetween = Math.ceil((endDateTime - startDateTime) / (1000 * 60));
-    const step = frequency / (minutesBetween / (24 * 60));
-
-    const plan = {
-        frequency: frequency,
-        duration: duration,
-        start: startDateTime.toISOString(),
-        end: endDateTime.toISOString(),
-        currentFrequency: frequency,
-        minutesLeft: minutesBetween,
-        step: step,
-        lastVapeTime: null
-    };
-
-    await fetch(`${BASE_URL}/${currentBinId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-        body: JSON.stringify(plan)
-    });
-
-    originalPlan = null;
-    checkFreeze(plan);
+// Пауза зависит только от времени: линейно растёт от исходной до суток к дате отказа.
+// Ничего не накапливается — срывы и правка плана пересчитываются сами.
+function intervalAt(p, now) {
+  const start = +new Date(p.start), end = +new Date(p.end);
+  const k = Math.min(1, Math.max(0, (now - start) / (end - start)));
+  return p.frequency + (Math.max(TARGET_INTERVAL, p.frequency) - p.frequency) * k;
 }
 
-function showPlan(plan) {
-    showSection('plan-section');
-    document.getElementById('vape-time').textContent = `${plan.duration} минут`;
-    document.getElementById('days-left').textContent = Math.ceil(plan.minutesLeft / (24 * 60));
-    document.getElementById('plan-active').classList.remove('hidden');
-    document.getElementById('freeze-section').classList.add('hidden');
+const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const dateStr = d => new Date(+d - d.getTimezoneOffset() * MIN).toISOString().slice(0, 10);
+const pad = n => String(n).padStart(2, '0');
 
-    if (nextVapeTimer) clearInterval(nextVapeTimer);
-    nextVapeTimer = setInterval(() => {
-        const now = new Date();
-        const lastVape = plan.lastVapeTime ? new Date(plan.lastVapeTime) : null;
-        let minutesUntilNext = lastVape ? Math.max(0, plan.currentFrequency - (now - lastVape) / (1000 * 60)) : plan.currentFrequency;
-        let secondsLeft = Math.round(minutesUntilNext * 60);
-        document.getElementById('next-vape').textContent = secondsLeft > 0 ? `${Math.floor(secondsLeft / 60)} мин ${secondsLeft % 60} сек` : 'Можно парить';
-    }, 1000);
+function fmt(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${pad(m)}:${pad(s % 60)}`;
 }
 
-function getRussianDays(days) {
-    if (days % 10 === 1 && days % 100 !== 11) return `${days} день`;
-    if ([2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100)) return `${days} дня`;
-    return `${days} дней`;
+function plural(n, one, few, many) {
+  if (n % 10 === 1 && n % 100 !== 11) return `${n} ${one}`;
+  if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return `${n} ${few}`;
+  return `${n} ${many}`;
 }
 
-function checkFreeze(plan) {
-    const now = new Date();
-    const start = new Date(plan.start);
-
-    showSection('plan-section');
-    if (start > now) {
-        const minutesToStart = Math.ceil((start - now) / (1000 * 60));
-        const daysToStart = Math.ceil(minutesToStart / (24 * 60));
-        const hoursToStart = Math.floor(minutesToStart / 60);
-        const remainingMinutes = minutesToStart % 60;
-        document.getElementById('freeze-message').textContent = `Курс начнётся через ${getRussianDays(daysToStart)} (${hoursToStart} ч ${remainingMinutes} мин)`;
-        document.getElementById('freeze-section').classList.remove('hidden');
-        document.getElementById('plan-active').classList.add('hidden');
-        document.getElementById('plan-title').classList.add('hidden');
-    } else {
-        document.getElementById('freeze-section').classList.add('hidden');
-        document.getElementById('plan-title').classList.remove('hidden');
-        showPlan(plan);
-    }
+function fmtInterval(min) {
+  const m = Math.round(min);
+  return m >= 120 ? `${Math.round(m / 60)} ч` : `${m} мин`;
 }
 
-async function editPlan() {
-    const plan = await loadPlan();
-    originalPlan = { ...plan };
-    showSection('vape-form');
-    document.getElementById('form-title').textContent = 'Настроить план';
-    document.getElementById('vape-frequency').value = plan.frequency || 360;
-    document.getElementById('vape-duration').value = plan.duration || 1;
-    document.getElementById('start-date').value = plan.start ? plan.start.split('T')[0] : '';
-    document.getElementById('end-date').value = plan.end ? plan.end.split('T')[0] : '';
-    updateFormActions(true);
+/* ---------- Экраны ---------- */
+function show(id) {
+  ['login', 'form', 'plan', 'tips'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+  $('logout').classList.toggle('hidden', id === 'login');
 }
 
-function cancelEdit() {
-    if (originalPlan && (originalPlan.frequency > 0 && originalPlan.duration && originalPlan.start && originalPlan.end)) {
-        checkFreeze(originalPlan);
-    } else {
-        document.getElementById('form-title').textContent = 'Расскажи о своей привычке';
-        document.getElementById('vape-frequency').value = '360';
-        document.getElementById('vape-duration').value = '1';
-        document.getElementById('start-date').value = '';
-        document.getElementById('end-date').value = '';
-        updateFormActions(false);
-        showSection('vape-form');
-    }
-    originalPlan = null;
+function toast(text) {
+  const t = $('toast');
+  t.textContent = text;
+  t.classList.add('show');
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => t.classList.remove('show'), 3200);
 }
 
-async function startVaping() {
-    const duration = parseInt(document.getElementById('vape-time').textContent);
-    let vapeTimeLeft = duration * 60;
-
-    if (nextVapeTimer) clearInterval(nextVapeTimer);
-    document.getElementById('start-vape').classList.add('hidden');
-    document.getElementById('stop-vape').classList.remove('hidden');
-
-    vapeTimer = setInterval(() => {
-        vapeTimeLeft--;
-        document.getElementById('vape-time').textContent = `Осталось: ${Math.floor(vapeTimeLeft / 60)} минут ${vapeTimeLeft % 60} секунд`;
-        if (vapeTimeLeft <= 0) {
-            clearInterval(vapeTimer);
-            document.getElementById('start-vape').classList.remove('hidden');
-            document.getElementById('stop-vape').classList.add('hidden');
-            updatePlan(true);
-        }
-    }, 1000);
+function openForm(isEdit) {
+  editing = isEdit;
+  const today = dateStr(new Date());
+  $('form-title').textContent = isEdit ? 'Изменить план' : 'Расскажи о привычке';
+  $('save-plan').textContent = isEdit ? 'Сохранить' : 'Создать план';
+  $('cancel-edit').classList.toggle('hidden', !isEdit);
+  $('frequency').value = isEdit ? plan.frequency : 360;
+  $('duration').value = isEdit ? plan.duration : 1;
+  $('start-date').value = isEdit ? dateStr(new Date(plan.start)) : today;
+  $('end-date').value = isEdit ? dateStr(new Date(plan.end)) : '';
+  $('start-date').min = isEdit ? '' : today;
+  show('form');
 }
 
-async function stopVaping() {
-    if (vapeTimer) clearInterval(vapeTimer);
-    document.getElementById('start-vape').classList.remove('hidden');
-    document.getElementById('stop-vape').classList.add('hidden');
-    updatePlan(true);
+/* ---------- Отрисовка плана (раз в секунду) ---------- */
+function render() {
+  if (!isValid(plan)) return;
+  const now = Date.now(), start = +new Date(plan.start), end = +new Date(plan.end);
+  const ring = document.querySelector('.ring-wrap'), banner = $('banner');
+  const btn = $('vape-btn');
+  const setRing = f => $('bar').style.strokeDashoffset = RING * (1 - Math.min(1, Math.max(0, f)));
+  banner.classList.add('hidden');
+  ring.classList.remove('ready');
+  btn.classList.remove('stop');
+
+  const total = end - start;
+  $('progress').textContent = Math.round(Math.min(1, Math.max(0, (now - start) / total)) * 100) + '%';
+
+  if (now < start) {                                   // курс ещё не начался
+    $('big').textContent = fmt(start - now);
+    $('caption').textContent = 'до старта курса';
+    $('days-left').textContent = plural(Math.ceil(total / DAY), 'день', 'дня', 'дней');
+    $('interval').textContent = fmtInterval(plan.frequency);
+    setRing(0); btn.classList.add('hidden');
+    return;
+  }
+  if (now >= end) {                                    // курс пройден
+    $('big').textContent = '🌿';
+    $('caption').textContent = 'курс завершён';
+    banner.textContent = 'Ты дошёл до конца. Теперь пауза — целые сутки и дальше.';
+    banner.classList.remove('hidden');
+    $('days-left').textContent = '0 дней';
+    $('interval').textContent = 'сутки+';
+    setRing(1); btn.classList.add('hidden');
+    return;
+  }
+
+  btn.classList.remove('hidden');
+  const interval = intervalAt(plan, now);
+  $('days-left').textContent = plural(Math.ceil((end - now) / DAY), 'день', 'дня', 'дней');
+  $('interval').textContent = fmtInterval(interval);
+
+  if (sessionEnd) {                                    // идёт сеанс
+    const left = sessionEnd - now;
+    if (left <= 0) return finishSession();
+    $('big').textContent = fmt(left);
+    $('caption').textContent = 'сеанс идёт';
+    btn.textContent = 'Закончить сеанс';
+    btn.classList.add('stop');
+    setRing(left / (plan.duration * MIN));
+    return;
+  }
+
+  btn.textContent = 'Начать сеанс';
+  const nextAt = plan.lastVapeTime ? +new Date(plan.lastVapeTime) + interval * MIN : 0;
+  const wait = nextAt - now;
+  if (wait <= 0) {
+    $('big').textContent = 'Можно';
+    $('caption').textContent = 'но можно и подождать';
+    ring.classList.add('ready');
+    setRing(1);
+  } else {
+    $('big').textContent = fmt(wait);
+    $('caption').textContent = 'до следующего сеанса';
+    setRing(1 - wait / (interval * MIN));
+  }
 }
 
-async function updatePlan(markVapeTime = false) {
-    const plan = await loadPlan();
-    if (markVapeTime) {
-        plan.lastVapeTime = new Date().toISOString();
-        plan.currentFrequency += plan.step;
-        plan.minutesLeft -= Math.ceil((new Date() - new Date(plan.lastVapeTime)) / (1000 * 60));
-    }
-    if (plan.minutesLeft <= 0) plan.currentFrequency = Infinity;
-
-    await fetch(`${BASE_URL}/${currentBinId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-        body: JSON.stringify(plan)
-    });
-
-    checkFreeze(plan);
+/* ---------- Действия ---------- */
+function startSession() {
+  sessionEnd = Date.now() + plan.duration * MIN;
+  localStorage.setItem('sessionEnd', sessionEnd);
+  render();
 }
 
-async function confirmReset() {
-    const confirmed = confirm('Ты точно сорвался? Это добавит 1 день к плану.');
-    if (confirmed) {
-        await resetPlan();
-    }
+async function finishSession() {
+  sessionEnd = 0;
+  localStorage.removeItem('sessionEnd');
+  plan.lastVapeTime = new Date().toISOString();
+  plan.sessions = (plan.sessions || 0) + 1;
+  render();
+  await save();
 }
 
-async function resetPlan() {
-    const plan = await loadPlan();
-    plan.minutesLeft += 24 * 60;
-    plan.end = new Date(new Date(plan.end).getTime() + 24 * 60 * 60 * 1000).toISOString();
-    await fetch(`${BASE_URL}/${currentBinId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-        body: JSON.stringify(plan)
-    });
-    checkFreeze(plan);
+async function relapse() {
+  if (!confirm('Ты сорвался? К плану добавится один день.')) return;
+  plan.end = new Date(+new Date(plan.end) + DAY).toISOString();
+  plan.relapses = (plan.relapses || 0) + 1;
+  render();
+  await save();
+  toast('Бывает. План сдвинут на день — продолжаем.');
 }
 
-function showTips() {
-    showSection('tips-section');
+async function savePlan() {
+  const sStr = $('start-date').value, eStr = $('end-date').value;
+  if (!sStr || !eStr) return toast('Укажи обе даты');
+
+  const now = new Date(), today = dateStr(now);
+  const sameStart = editing && sStr === dateStr(new Date(plan.start));
+  if (sStr < today && !sameStart) return toast('Дата начала не может быть в прошлом');
+
+  const start = sameStart ? new Date(plan.start) : sStr === today ? now : parseDate(sStr);
+  const end = parseDate(eStr);
+  if (end <= start) return toast('Дата окончания должна быть позже начала');
+
+  plan = {
+    ...(editing ? plan : {}),
+    frequency: +$('frequency').value,
+    duration: +$('duration').value,
+    start: start.toISOString(),
+    end: end.toISOString(),
+    lastVapeTime: editing ? plan.lastVapeTime : null
+  };
+  show('plan'); render();
+  await save();
 }
 
-function backToPlan() {
-    showSection('plan-section');
+/* ---------- Вход ---------- */
+async function login(id) {
+  binId = id;
+  try {
+    plan = await api('GET');
+  } catch (e) {
+    toast('Не удалось загрузить: ' + e.message);
+    return show('login');
+  }
+  localStorage.setItem('binId', binId);
+  if (isValid(plan)) { show('plan'); render(); }
+  else { plan = null; openForm(false); }
 }
 
-function showSection(sectionId) {
-    document.querySelectorAll('.container > div').forEach(div => div.classList.add('hidden'));
-    document.getElementById(sectionId).classList.remove('hidden');
-}
-
-function updateFormActions(isEditing) {
-    const formActions = document.getElementById('form-actions');
-    formActions.innerHTML = '';
-    const submitButton = document.createElement('button');
-    submitButton.textContent = isEditing ? 'Сохранить изменения' : 'Создать план';
-    submitButton.onclick = createPlan;
-    formActions.appendChild(submitButton);
-    if (isEditing) {
-        const cancelButton = document.createElement('button');
-        cancelButton.textContent = 'Отменить изменения';
-        cancelButton.className = 'cancel-btn';
-        cancelButton.onclick = cancelEdit;
-        formActions.appendChild(cancelButton);
-    }
-}
-
-window.onload = async function() {
-    await login();
+$('login-btn').onclick = () => {
+  const id = $('sync-code').value.trim();
+  id ? login(id) : toast('Введи ID');
 };
+$('sync-code').onkeydown = e => e.key === 'Enter' && $('login-btn').click();
+$('logout').onclick = () => { localStorage.removeItem('binId'); binId = plan = null; show('login'); };
+$('vape-btn').onclick = () => sessionEnd ? finishSession() : startSession();
+$('relapse').onclick = relapse;
+$('edit').onclick = () => openForm(true);
+$('save-plan').onclick = savePlan;
+$('cancel-edit').onclick = () => { show('plan'); render(); };
+$('tips-btn').onclick = () => show('tips');
+$('back').onclick = () => { show('plan'); render(); };
+
+setInterval(() => { if (!$('plan').classList.contains('hidden')) render(); }, 1000);
+binId ? login(binId) : show('login');
