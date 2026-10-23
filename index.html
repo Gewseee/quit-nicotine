@@ -1,103 +1,110 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quit Nicotine</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f0f0f0; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        input, select { padding: 10px; width: 200px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
-        button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
-        button:hover { background-color: #45a049; }
-        .hidden { display: none; }
-        h1 { font-weight: bold; color: #333; margin: 10px 0; }
-        h2 { font-weight: normal; color: #333; margin: 10px 0; }
-        p { color: #666; margin: 5px 0; }
-        #tips-section p { text-align: left; }
-        #plan-info { margin-bottom: 15px; }
-        #plan-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-        .form-actions { display: flex; gap: 10px; justify-content: center; }
-        .cancel-btn { background-color: #ff4444; }
-        .cancel-btn:hover { background-color: #cc0000; }
-        #freeze-section { text-align: center; }
-        #freeze-message { font-size: 24px; color: #333; margin: 20px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e2a2d">
+<title>Бросаем никотин</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Бросаем никотин</h1>
+<main class="card">
+  <header>
+    <h1>Бросаем никотин</h1>
+    <button id="logout" class="link hidden">Выйти</button>
+  </header>
 
-        <div id="login-section">
-            <p>Введи свой айди полученный у администратора (или попроси его создать новый):</p>
-            <input type="text" id="sync-code" placeholder="Например: 67d00b9a8960c979a56f74c4">
-            <button onclick="login()">Войти</button>
-            <p>Запомни binId для входа с других устройств!</p>
-        </div>
+  <section id="login">
+    <p>Введи ID, который выдал администратор.</p>
+    <input id="sync-code" placeholder="Например: 67d00b9a8960c979a56f74c4" autocomplete="off">
+    <button class="primary" id="login-btn">Войти</button>
+    <p class="hint">Сохрани ID — по нему можно войти с другого устройства.</p>
+  </section>
 
-        <div id="vape-form" class="hidden">
-            <h2 id="form-title">Расскажи о своей привычке</h2>
-            <p>Через сколько времени тебе хочется парить?</p>
-            <select id="vape-frequency">
-                <option value="360">Очень редко (раз в 6+ часов)</option>
-                <option value="240">Не часто (раз в 3-5 часов)</option>
-                <option value="90">Средне (раз в 1-2 часа)</option>
-                <option value="45">Часто (раз в 30-60 минут)</option>
-                <option value="20">Очень часто (раз в 15-30 минут)</option>
-                <option value="10">Почти всегда (раз в 5-15 минут)</option>
-            </select>
-            <p>Сколько примерно минут длится сеанс?</p>
-            <select id="vape-duration">
-                <option value="1">1-2 минуты</option>
-                <option value="2">2-4 минуты</option>
-                <option value="4">4-6 минут</option>
-                <option value="6">6-8 минут</option>
-                <option value="8">8-10 минут</option>
-            </select>
-            <p>Когда начинаешь?</p>
-            <input type="date" id="start-date" min="2025-03-13">
-            <p>Когда хочешь бросить?</p>
-            <input type="date" id="end-date">
-            <div class="form-actions" id="form-actions"></div>
-        </div>
+  <section id="form" class="hidden">
+    <h2 id="form-title">Расскажи о привычке</h2>
+    <label>Как часто хочется парить?
+      <select id="frequency">
+        <option value="360">Очень редко: раз в 6 часов и реже</option>
+        <option value="240">Нечасто: раз в 3–5 часов</option>
+        <option value="90">Средне: раз в 1–2 часа</option>
+        <option value="45">Часто: раз в 30–60 минут</option>
+        <option value="20">Очень часто: раз в 15–30 минут</option>
+        <option value="10">Почти всегда: раз в 5–15 минут</option>
+      </select>
+    </label>
+    <label>Сколько длится один сеанс?
+      <select id="duration">
+        <option value="1">1–2 минуты</option>
+        <option value="2">2–4 минуты</option>
+        <option value="4">4–6 минут</option>
+        <option value="6">6–8 минут</option>
+        <option value="8">8–10 минут</option>
+      </select>
+    </label>
+    <div class="row">
+      <label>Начало <input type="date" id="start-date"></label>
+      <label>Бросаю к <input type="date" id="end-date"></label>
+    </div>
+    <div class="row">
+      <button class="primary" id="save-plan">Создать план</button>
+      <button class="ghost hidden" id="cancel-edit">Отмена</button>
+    </div>
+  </section>
 
-        <div id="plan-section" class="hidden">
-            <h2 id="plan-title">Твой план</h2>
-            <div id="plan-active" class="hidden">
-                <div id="plan-info">
-                    <p>Следующее парение через: <span id="next-vape">X минут</span></p>
-                    <p>Длительность: <span id="vape-time">Y минут</span></p>
-                    <p>Дней до конца: <span id="days-left">Z</span></p>
-                </div>
-                <div id="plan-actions">
-                    <button id="start-vape" onclick="startVaping()">Начать парение</button>
-                    <button id="stop-vape" onclick="stopVaping()" class="hidden">Закончить сеанс</button>
-                    <button onclick="confirmReset()">Сорвался</button>
-                    <button onclick="editPlan()">Редактировать план</button>
-                    <button onclick="showTips()">Советы</button>
-                </div>
-            </div>
-            <div id="freeze-section" class="hidden">
-                <p id="freeze-message"></p>
-                <button onclick="editPlan()">Редактировать план</button>
-                <button onclick="showTips()">Советы</button>
-            </div>
-        </div>
-
-        <div id="tips-section" class="hidden">
-            <h2>Советы</h2>
-            <p>1. Если хочется парить, выпей воды — отвлечёт.</p>
-            <p>2. Жуй жвачку, чтобы занять руки и рот.</p>
-            <p>3. Прогуляйся, чтобы снять напряжение.</p>
-            <p>4. Дыши глубже, чтобы успокоиться.</p>
-            <p>5. Слушай музыку или играй на телефоне.</p>
-            <p>6. Попробуй жидкость с никотином на 3-6 мг меньше.</p>
-            <p>7. Поставь таймер на телефон, если сайт неудобен.</p>
-            <p>Твой прогресс — уже сила!</p>
-            <button onclick="backToPlan()">Назад</button>
-        </div>
+  <section id="plan" class="hidden">
+    <div class="ring-wrap">
+      <svg viewBox="0 0 220 220" class="ring" aria-hidden="true">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--mint)"/><stop offset="1" stop-color="var(--sand)"/>
+          </linearGradient>
+        </defs>
+        <circle class="track" cx="110" cy="110" r="96"/>
+        <circle class="bar" id="bar" cx="110" cy="110" r="96"/>
+      </svg>
+      <div class="ring-text" aria-live="polite">
+        <span id="big">--:--</span>
+        <span id="caption"></span>
+      </div>
     </div>
 
-    <script src="script.js"></script>
+    <p id="banner" class="banner hidden"></p>
+
+    <dl class="stats">
+      <div><dt>Осталось</dt><dd id="days-left">–</dd></div>
+      <div><dt>Пройдено</dt><dd id="progress">–</dd></div>
+      <div><dt>Пауза сейчас</dt><dd id="interval">–</dd></div>
+    </dl>
+
+    <div class="row">
+      <button class="primary" id="vape-btn">Начать сеанс</button>
+    </div>
+    <div class="row small">
+      <button class="ghost" id="relapse">Сорвался</button>
+      <button class="ghost" id="edit">Изменить план</button>
+      <button class="ghost" id="tips-btn">Советы</button>
+    </div>
+  </section>
+
+  <section id="tips" class="hidden">
+    <h2>Советы</h2>
+    <ol>
+      <li>Хочется парить — выпей воды, это отвлекает.</li>
+      <li>Жуй жвачку, чтобы занять руки и рот.</li>
+      <li>Прогуляйся и сними напряжение.</li>
+      <li>Подыши глубже: вдох на четыре счёта, выдох на шесть.</li>
+      <li>Включи музыку или игру на телефоне.</li>
+      <li>Возьми жидкость с никотином на 3–6 мг слабее.</li>
+    </ol>
+    <p class="hint">Каждая лишняя минута паузы — уже победа.</p>
+    <button class="ghost" id="back">Назад</button>
+  </section>
+</main>
+<div id="toast" role="status"></div>
+<script src="script.js"></script>
 </body>
 </html>
