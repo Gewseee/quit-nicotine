@@ -1,7 +1,23 @@
 const API_URL = 'https://gewseee--6d662ceed07a11f194b21607ee4eb77e.web.val.run';   // адрес твоего val в Val Town
 const MIN = 60000, DAY = 86400000;
-const TARGET_INTERVAL = 1440;   // к дате отказа пауза между сеансами растёт до суток
+const TARGET_INTERVAL = 1440;   // к дате отказа пауза между разами растёт до суток
 const RING = 603.2;             // длина окружности кольца (2π·96)
+const SCREENS = ['login', 'keys', 'form', 'plan', 'tips'];
+const SUBST = {
+  vape:  { start: 'Начать сеанс', stop: 'Закончить сеанс', going: 'сеанс идёт', next: 'до следующего сеанса' },
+  cig:   { start: 'Начать перекур', stop: 'Закончить перекур', going: 'перекур идёт', next: 'до следующего перекура' },
+  snus:  { start: 'Положить порцию', stop: 'Достать порцию', going: 'порция на месте', next: 'до следующей порции' },
+  other: { start: 'Начать', stop: 'Закончить', going: 'идёт', next: 'до следующего раза' }
+};
+const DEFAULT_DUR = { vape: 5, cig: 5, snus: 30, other: 10 };
+const SOS_TOTAL = 5 * MIN, SOS_BREATH = MIN;
+const SOS_STEPS = [
+  'Выпей стакан воды маленькими глотками.',
+  'Встань и пройдись: хотя бы до окна и обратно.',
+  'Умойся или помой руки.',
+  'Напиши кому-нибудь или позвони.',
+  'Пожуй жвачку или съешь что-нибудь.'
+];
 
 const $ = id => document.getElementById(id);
 const readJSON = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
@@ -10,7 +26,7 @@ let code = localStorage.getItem('syncCode');
 let plan = readJSON('plan');
 let dirty = localStorage.getItem('dirty') === '1';
 let sessionEnd = Number(localStorage.getItem('sessionEnd')) || 0;
-let editing = false;
+let editing = false, keysFirst = false;
 
 /* ---------- Синхронизация ---------- */
 async function api(method, body) {
@@ -49,13 +65,14 @@ async function sync() {
     if (e.status === 403) {
       const v = prompt('Нужен пароль регистрации — спроси его у администратора:');
       if (v) { sessionStorage.setItem('invite', v.trim()); return sync(); }
-    } else if (e.status === 401) toast('Код синхронизации выглядит неверно');
+    } else if (e.status === 401) toast('Код входа выглядит неверно');
     else toast('Нет связи — данные сохранены на устройстве');
   }
 }
 
 /* ---------- Логика плана ---------- */
 const isValid = p => p && p.frequency > 0 && p.duration > 0 && p.start && p.end;
+const L = () => SUBST[plan && plan.substance] || SUBST.vape;
 
 // Пауза зависит только от времени: линейно растёт от исходной до суток к дате отказа.
 function intervalAt(p, now) {
@@ -87,8 +104,9 @@ function fmtInterval(min) {
 
 /* ---------- Экраны ---------- */
 function show(id) {
-  ['login', 'form', 'plan', 'tips'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+  SCREENS.forEach(s => $(s).classList.toggle('hidden', s !== id));
   $('logout').classList.toggle('hidden', id === 'login');
+  $('sync-link').classList.toggle('hidden', id === 'login');
 }
 
 function toast(text) {
@@ -99,31 +117,64 @@ function toast(text) {
   toast.t = setTimeout(() => t.classList.remove('show'), 3200);
 }
 
-function visibleSection() {
-  return ['login', 'form', 'plan', 'tips'].find(s => !$(s).classList.contains('hidden'));
-}
+const visibleSection = () => SCREENS.find(s => !$(s).classList.contains('hidden'));
 
 // Решаем, какой экран показать по текущему состоянию.
 function route() {
   const cur = visibleSection();
   if (!code) return show('login');
+  if (cur === 'keys') return;
   if (!isValid(plan)) { if (cur !== 'form') openForm(false); return; }
   if (cur === 'login' || (cur === 'form' && !editing)) { show('plan'); render(); }
+}
+
+/* ---------- Форма: карточки выбора ---------- */
+const chip = n => document.querySelector(`.chips[data-name="${n}"]`);
+const getChip = n => { const b = chip(n).querySelector('.on'); return b && b.dataset.v; };
+
+function setChip(n, v) {
+  const btns = [...chip(n).children];
+  let best = btns.find(b => b.dataset.v === String(v));
+  if (!best && !isNaN(v)) best = btns.reduce((a, b) => Math.abs(+b.dataset.v - v) < Math.abs(+a.dataset.v - v) ? b : a);
+  btns.forEach(b => b.classList.toggle('on', b === best));
 }
 
 function openForm(isEdit) {
   editing = isEdit;
   const today = dateStr(new Date());
-  $('form-title').textContent = isEdit ? 'Изменить план' : 'Расскажи о привычке';
+  $('form-title').textContent = isEdit ? 'Изменить план' : 'Настроим план';
   $('save-plan').textContent = isEdit ? 'Сохранить' : 'Создать план';
   $('cancel-edit').classList.toggle('hidden', !isEdit);
-  $('frequency').value = isEdit ? plan.frequency : 360;
-  $('duration').value = isEdit ? plan.duration : 1;
+  setChip('substance', isEdit ? plan.substance || 'vape' : 'vape');
+  setChip('frequency', isEdit ? plan.frequency : 90);
+  setChip('duration', isEdit ? plan.duration : DEFAULT_DUR.vape);
   $('start-date').value = isEdit ? dateStr(new Date(plan.start)) : today;
-  $('end-date').value = isEdit ? dateStr(new Date(plan.end)) : '';
   $('start-date').min = isEdit ? '' : today;
-  isEdit ? updatePreview() : setWeeks(4);
+  if (isEdit) { $('end-date').value = dateStr(new Date(plan.end)); updatePreview(); }
+  else setWeeks(4);
   show('form');
+}
+
+function setWeeks(w) {
+  const d = parseDate($('start-date').value || dateStr(new Date()));
+  d.setDate(d.getDate() + w * 7);
+  $('end-date').value = dateStr(d);
+  updatePreview();
+}
+
+function updatePreview() {
+  const s = $('start-date').value, e = $('end-date').value, f = +getChip('frequency');
+  const days = s && e ? Math.round((parseDate(e) - parseDate(s)) / DAY) : 0;
+  document.querySelectorAll('.speeds button')
+    .forEach(b => b.classList.toggle('on', +b.dataset.weeks * 7 === days));
+  $('until').textContent = days > 0
+    ? `Бросаешь к ${parseDate(e).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`
+    : 'Выбери срок выше или свои даты.';
+  const T = Math.max(TARGET_INTERVAL, f);
+  $('preview').innerHTML = days > 0
+    ? [['Сейчас', f], ['Посередине', (f + T) / 2], ['К концу', T]]
+        .map(([l, v]) => `<span><b>${fmtInterval(v)}</b>${l}</span>`).join('')
+    : '';
 }
 
 /* ---------- Отрисовка плана (раз в секунду) ---------- */
@@ -169,14 +220,14 @@ function render() {
     const left = sessionEnd - now;
     if (left <= 0) return finishSession();
     $('big').textContent = fmt(left);
-    $('caption').textContent = 'сеанс идёт';
-    btn.textContent = 'Закончить сеанс';
+    $('caption').textContent = L().going;
+    btn.textContent = L().stop;
     btn.classList.add('stop');
     setRing(left / (plan.duration * MIN));
     return;
   }
 
-  btn.textContent = 'Начать сеанс';
+  btn.textContent = L().start;
   const nextAt = plan.lastVapeTime ? +new Date(plan.lastVapeTime) + interval * MIN : 0;
   const wait = nextAt - now;
   if (wait <= 0) {
@@ -186,7 +237,7 @@ function render() {
     setRing(1);
   } else {
     $('big').textContent = fmt(wait);
-    $('caption').textContent = 'до следующего сеанса';
+    $('caption').textContent = L().next;
     setRing(1 - wait / (interval * MIN));
   }
 }
@@ -218,7 +269,7 @@ async function relapse() {
 
 async function savePlan() {
   const sStr = $('start-date').value, eStr = $('end-date').value;
-  if (!sStr || !eStr) return toast('Укажи обе даты');
+  if (!sStr || !eStr) return toast('Выбери срок или укажи обе даты');
 
   const now = new Date(), today = dateStr(now);
   const sameStart = editing && sStr === dateStr(new Date(plan.start));
@@ -230,8 +281,9 @@ async function savePlan() {
 
   plan = {
     ...(editing ? plan : {}),
-    frequency: +$('frequency').value,
-    duration: +$('duration').value,
+    substance: getChip('substance'),
+    frequency: +getChip('frequency'),
+    duration: +getChip('duration'),
     start: start.toISOString(),
     end: end.toISOString(),
     lastVapeTime: editing ? plan.lastVapeTime : null
@@ -240,46 +292,22 @@ async function savePlan() {
   await save();
 }
 
-/* ---------- Пресеты и предпросмотр ---------- */
-const PRESET_NOTES = {
-  2: 'Быстро: паузы растут круто. Тяжелее, зато короче. Подойдёт, если привычка лёгкая.',
-  4: 'Спокойно: золотая середина, к паузам привыкаешь постепенно.',
-  8: 'Мягко: самый плавный путь. Хорош, если уже срывался или тянет часто.'
-};
-
-function setWeeks(w) {
-  const d = parseDate($('start-date').value || dateStr(new Date()));
-  d.setDate(d.getDate() + w * 7);
-  $('end-date').value = dateStr(d);
-  updatePreview();
-}
-
-function updatePreview() {
-  const s = $('start-date').value, e = $('end-date').value, f = +$('frequency').value;
-  const days = s && e ? Math.round((parseDate(e) - parseDate(s)) / DAY) : 0;
-  document.querySelectorAll('#presets button')
-    .forEach(b => b.classList.toggle('on', +b.dataset.weeks * 7 === days));
-  $('preset-note').textContent = days > 0
-    ? PRESET_NOTES[days / 7] || 'Свои даты: чем длиннее срок, тем мягче растут паузы.'
-    : 'Выбери дату окончания или готовый вариант выше.';
-  const T = Math.max(TARGET_INTERVAL, f);
-  $('preview').innerHTML = days > 0
-    ? [['В начале', f], ['Посередине', (f + T) / 2], ['В конце', T]]
-        .map(([l, v]) => `<span><b>${fmtInterval(v)}</b>${l}</span>`).join('')
-    : '';
-}
-
-/* ---------- Тяга: дыхание на 10 минут ---------- */
+/* ---------- Тяга: минута дыхания и простые шаги ---------- */
 let sosTimer = null, sosEnd = 0;
 
 function openSos() {
-  sosEnd = Date.now() + 10 * MIN;
+  sosEnd = Date.now() + SOS_TOTAL;
   $('sos').classList.remove('hidden');
   clearInterval(sosTimer);
   sosTimer = setInterval(() => {
-    const left = sosEnd - Date.now(), t = 10 * MIN - left;
+    const left = sosEnd - Date.now(), t = SOS_TOTAL - left;
     if (left <= 0) return closeSos(true);
-    $('sos-text').textContent = t % 10000 < 4000 ? 'Вдох' : 'Выдох';
+    const breathing = t < SOS_BREATH;
+    $('breath').classList.toggle('calm', !breathing);
+    $('sos-text').classList.toggle('small', !breathing);
+    $('sos-text').textContent = breathing
+      ? (t % 10000 < 4000 ? 'Вдох' : 'Выдох')
+      : SOS_STEPS[Math.floor((t - SOS_BREATH) / 45000) % SOS_STEPS.length];
     $('sos-time').textContent = fmt(left);
   }, 200);
 }
@@ -294,35 +322,56 @@ async function closeSos(won) {
   await save();
 }
 
-/* ---------- Вход по коду ---------- */
-async function setCode(c) {
+/* ---------- Код входа ---------- */
+async function setCode(c, first) {
   code = c; plan = null;
   localStorage.setItem('syncCode', c);
   localStorage.removeItem('plan');
   markDirty(false);
   await sync();
-  route();
+  first ? showKeys(true) : route();
+}
+
+function showKeys(first) {
+  keysFirst = first;
+  $('code-box').value = code;
+  $('keys-done').textContent = first ? 'Понятно, дальше' : 'Назад';
+  show('keys');
 }
 
 $('login-btn').onclick = () => {
   const c = $('sync-code').value.trim().toLowerCase();
-  /^[a-f0-9]{32}$/.test(c) ? setCode(c) : toast('Код — 32 символа: цифры и буквы a–f');
+  /^[a-f0-9]{32}$/.test(c) ? setCode(c, false) : toast('Код — 32 символа: цифры и буквы a–f');
 };
 $('sync-code').onkeydown = e => e.key === 'Enter' && $('login-btn').click();
 $('new-btn').onclick = () => {
   const b = crypto.getRandomValues(new Uint8Array(16));
-  setCode([...b].map(x => x.toString(16).padStart(2, '0')).join(''));
+  setCode([...b].map(x => x.toString(16).padStart(2, '0')).join(''), true);
 };
-$('code-btn').onclick = () => {
-  navigator.clipboard?.writeText(code);
-  toast('Код скопирован. Сохрани его: ' + code);
+$('copy-code').onclick = async () => {
+  $('code-box').select();
+  try { await navigator.clipboard.writeText(code); } catch { document.execCommand('copy'); }
+  toast('Код скопирован');
 };
+$('keys-done').onclick = () => { show('plan'); route(); render(); };
+$('sync-link').onclick = () => showKeys(false);
 $('logout').onclick = () => {
-  if (!confirm('Выйти? Без кода синхронизации вернуться не получится.\nТвой код: ' + code)) return;
+  if (!confirm('Выйти? Без кода входа вернуться не получится.\nТвой код: ' + code)) return;
   ['syncCode', 'plan', 'dirty', 'sessionEnd'].forEach(k => localStorage.removeItem(k));
   code = plan = null; dirty = false; sessionEnd = 0;
   show('login');
 };
+
+/* ---------- Обработчики ---------- */
+document.querySelectorAll('.chips').forEach(g => g.onclick = e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  setChip(g.dataset.name, b.dataset.v);
+  if (g.dataset.name === 'substance') setChip('duration', DEFAULT_DUR[b.dataset.v]);
+  updatePreview();
+});
+document.querySelectorAll('.speeds button').forEach(b => b.onclick = () => setWeeks(+b.dataset.weeks));
+['start-date', 'end-date'].forEach(id => $(id).addEventListener('input', updatePreview));
 $('vape-btn').onclick = () => sessionEnd ? finishSession() : startSession();
 $('relapse').onclick = relapse;
 $('edit').onclick = () => openForm(true);
@@ -333,8 +382,6 @@ $('back').onclick = () => { show('plan'); render(); };
 $('sos-btn').onclick = openSos;
 $('sos-done').onclick = () => closeSos(true);
 $('sos-close').onclick = () => closeSos(false);
-['frequency', 'start-date', 'end-date'].forEach(id => $(id).addEventListener('input', updatePreview));
-document.querySelectorAll('#presets button').forEach(b => b.onclick = () => setWeeks(+b.dataset.weeks));
 
 setInterval(() => { if (!$('plan').classList.contains('hidden')) render(); }, 1000);
 // Вернулся на вкладку или появилась сеть — подтягиваем изменения с других устройств.
