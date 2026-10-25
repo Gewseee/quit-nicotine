@@ -47,8 +47,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .ring circle{fill:none;stroke-width:10}
 .track{stroke:var(--line)}
 .bar{stroke:url(#g);stroke-linecap:round;stroke-dasharray:603.2;stroke-dashoffset:603.2;transition:stroke-dashoffset .9s linear}
-.ring-wrap.ready .bar{filter:drop-shadow(0 0 10px var(--mint));animation:breathe 4s ease-in-out infinite}
-@keyframes breathe{50%{opacity:.55}}
+.ring-wrap::before{content:'';position:absolute;inset:8%;border-radius:50%;box-shadow:0 0 46px rgba(143,227,200,.16);transition:box-shadow .6s}
+.ring-wrap.ready::before{box-shadow:0 0 64px rgba(143,227,200,.42);animation:glow 4s ease-in-out infinite}
+@keyframes glow{50%{opacity:.45}}
 .ring-text{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 34px}
 #big{font:700 44px/1.1 Fraunces,Georgia,serif;font-variant-numeric:tabular-nums}
 #caption{color:var(--muted);font-size:14px;margin-top:4px}
@@ -79,3 +80,20 @@ ol{margin:0;padding-left:20px;display:grid;gap:8px}
 #sos-text{font:700 34px Fraunces,Georgia,serif}
 #sos-time{color:var(--muted);font-variant-numeric:tabular-nums}
 .overlay .primary{min-width:200px}
+
+header nav{display:flex;gap:6px}
+.q h3{margin:0 0 8px;font:600 15px Manrope,sans-serif}
+.chips{display:grid;gap:8px;grid-template-columns:repeat(3,1fr)}
+.chips.c2{grid-template-columns:repeat(2,1fr)}
+.chips button,.speeds button{padding:11px 8px;font-size:14px;background:rgba(0,0,0,.2);border:1px solid var(--line);color:var(--ink);border-radius:14px}
+.chips .on,.speeds .on{border-color:var(--mint);background:rgba(143,227,200,.14);box-shadow:inset 0 0 0 1px var(--mint)}
+.speeds{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.speeds button{display:flex;flex-direction:column;gap:2px;padding:12px 6px}
+.speeds b{font:700 17px Fraunces,Georgia,serif}
+.speeds span{font-size:14px}
+.speeds small{font-weight:400;font-size:12px;color:var(--muted)}
+#until{margin-top:8px}
+details summary{cursor:pointer;color:var(--muted);font-size:14px;margin:6px 0 10px}
+#code-box{font:600 15px ui-monospace,Consolas,monospace;text-align:center;user-select:all}
+.breath.calm{animation:none;transform:scale(.9)}
+#sos-text.small{font-size:22px;max-width:320px;line-height:1.3}
