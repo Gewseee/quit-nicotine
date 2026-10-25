@@ -38,7 +38,8 @@
 
   <section id="form" class="hidden">
     <h2 id="form-title">Настроим план</h2>
-    <div class="q"><h3>1. Что бросаем?</h3>
+    <p class="hint" id="form-lead">Отвечай по порядку: следующие вопросы откроются после выбора.</p>
+    <div class="q" data-step="1"><h3>1. Что бросаем?</h3>
       <div class="chips c2" data-name="substance">
         <button type="button" data-v="vape">Вейп</button>
         <button type="button" data-v="cig">Сигареты</button>
@@ -46,7 +47,7 @@
         <button type="button" data-v="other">Другое</button>
       </div>
     </div>
-    <div class="q"><h3>2. Как часто тянет сейчас?</h3>
+    <div class="q locked" data-step="2"><h3 id="q-freq">2. Как часто тянет?</h3>
       <div class="chips c2" data-name="frequency">
         <button type="button" data-v="360">Раз в 6 часов и реже</button>
         <button type="button" data-v="240">Раз в 3–5 часов</button>
@@ -56,7 +57,7 @@
         <button type="button" data-v="10">Раз в 5–15 минут</button>
       </div>
     </div>
-    <div class="q"><h3>3. Как долго это обычно длится?</h3>
+    <div class="q locked" data-step="3"><h3 id="q-dur">3. Сколько это обычно длится?</h3>
       <div class="chips" data-name="duration">
         <button type="button" data-v="2">до 2 мин</button>
         <button type="button" data-v="5">3–5 мин</button>
@@ -65,24 +66,13 @@
         <button type="button" data-v="30">20–30 мин</button>
       </div>
     </div>
-    <div class="q"><h3>4. За какое время бросаем?</h3>
-      <div class="speeds">
-        <button type="button" data-weeks="2"><b>2 недели</b><span>Быстро</span><small>резкий темп</small></button>
-        <button type="button" data-weeks="4"><b>4 недели</b><span>Спокойно</span><small>золотая середина</small></button>
-        <button type="button" data-weeks="8"><b>8 недель</b><span>Мягко</span><small>плавно и бережно</small></button>
-      </div>
+    <div class="q locked" data-step="4"><h3>4. К какой дате хочешь бросить?</h3>
+      <input type="date" id="end-date">
       <p class="hint" id="until"></p>
-      <details id="custom-dates">
-        <summary>Выбрать свои даты</summary>
-        <div class="row">
-          <label>Начало <input type="date" id="start-date"></label>
-          <label>Бросаю к <input type="date" id="end-date"></label>
-        </div>
-      </details>
     </div>
-    <div class="q"><h3>Так будут расти паузы</h3><div class="preview" id="preview"></div></div>
+    <div class="q hidden" id="preview-box"><h3>Так будут расти паузы</h3><div class="preview" id="preview"></div></div>
     <div class="row">
-      <button class="primary" id="save-plan">Создать план</button>
+      <button class="primary" id="save-plan" disabled>Создать план</button>
       <button class="ghost hidden" id="cancel-edit">Отмена</button>
     </div>
   </section>
