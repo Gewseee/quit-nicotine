@@ -3,13 +3,15 @@ const MIN = 60000, DAY = 86400000;
 const TARGET_INTERVAL = 1440;   // к дате отказа пауза между разами растёт до суток
 const RING = 603.2;             // длина окружности кольца (2π·96)
 const SCREENS = ['login', 'keys', 'form', 'plan', 'tips'];
-const SUBST = {
-  vape:  { start: 'Начать сеанс', stop: 'Закончить сеанс', going: 'сеанс идёт', next: 'до следующего сеанса' },
-  cig:   { start: 'Начать перекур', stop: 'Закончить перекур', going: 'перекур идёт', next: 'до следующего перекура' },
-  snus:  { start: 'Положить порцию', stop: 'Достать порцию', going: 'порция на месте', next: 'до следующей порции' },
-  other: { start: 'Начать', stop: 'Закончить', going: 'идёт', next: 'до следующего раза' }
+const LABEL = { start: 'Начать приём', stop: 'Закончить приём', going: 'идёт приём', next: 'до следующего приёма' };
+// Первый выбор меняет только формулировки вопросов в форме.
+const ASK = {
+  none:  { freq: 'Как часто тянет?', dur: 'Сколько это обычно длится?' },
+  vape:  { freq: 'Как часто тянет парить?', dur: 'Сколько обычно длится одно парение?' },
+  cig:   { freq: 'Как часто хочется курить?', dur: 'Сколько обычно длится одна сигарета?' },
+  snus:  { freq: 'Как часто тянет взять снюс?', dur: 'Как долго обычно держишь одну порцию?' },
+  other: { freq: 'Как часто тянет принять никотин?', dur: 'Сколько обычно длится один приём?' }
 };
-const DEFAULT_DUR = { vape: 5, cig: 5, snus: 30, other: 10 };
 const SOS_TOTAL = 5 * MIN, SOS_BREATH = MIN;
 const SOS_STEPS = [
   'Выпей стакан воды маленькими глотками.',
@@ -72,7 +74,6 @@ async function sync() {
 
 /* ---------- Логика плана ---------- */
 const isValid = p => p && p.frequency > 0 && p.duration > 0 && p.start && p.end;
-const L = () => SUBST[plan && plan.substance] || SUBST.vape;
 
 // Пауза зависит только от времени: линейно растёт от исходной до суток к дате отказа.
 function intervalAt(p, now) {
@@ -139,39 +140,49 @@ function setChip(n, v) {
   btns.forEach(b => b.classList.toggle('on', b === best));
 }
 
+const clearChip = n => chip(n).querySelectorAll('button').forEach(b => b.classList.remove('on'));
+
 function openForm(isEdit) {
   editing = isEdit;
-  const today = dateStr(new Date());
   $('form-title').textContent = isEdit ? 'Изменить план' : 'Настроим план';
+  $('form-lead').classList.toggle('hidden', isEdit);
   $('save-plan').textContent = isEdit ? 'Сохранить' : 'Создать план';
   $('cancel-edit').classList.toggle('hidden', !isEdit);
-  setChip('substance', isEdit ? plan.substance || 'vape' : 'vape');
-  setChip('frequency', isEdit ? plan.frequency : 90);
-  setChip('duration', isEdit ? plan.duration : DEFAULT_DUR.vape);
-  $('start-date').value = isEdit ? dateStr(new Date(plan.start)) : today;
-  $('start-date').min = isEdit ? '' : today;
-  if (isEdit) { $('end-date').value = dateStr(new Date(plan.end)); updatePreview(); }
-  else setWeeks(4);
+  $('end-date').min = isEdit ? '' : dateStr(new Date(Date.now() + DAY));
+  if (isEdit) {
+    setChip('substance', plan.substance || 'vape');
+    setChip('frequency', plan.frequency);
+    setChip('duration', plan.duration);
+    $('end-date').value = dateStr(new Date(plan.end));
+  } else {
+    ['substance', 'frequency', 'duration'].forEach(clearChip);
+    $('end-date').value = '';
+  }
+  updatePreview();
   show('form');
 }
 
-function setWeeks(w) {
-  const d = parseDate($('start-date').value || dateStr(new Date()));
-  d.setDate(d.getDate() + w * 7);
-  $('end-date').value = dateStr(d);
-  updatePreview();
-}
-
+// Вопросы открываются по порядку, формулировки зависят от первого выбора.
 function updatePreview() {
-  const s = $('start-date').value, e = $('end-date').value, f = +getChip('frequency');
-  const days = s && e ? Math.round((parseDate(e) - parseDate(s)) / DAY) : 0;
-  document.querySelectorAll('.speeds button')
-    .forEach(b => b.classList.toggle('on', +b.dataset.weeks * 7 === days));
-  $('until').textContent = days > 0
-    ? `Бросаешь к ${parseDate(e).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`
-    : 'Выбери срок выше или свои даты.';
-  const T = Math.max(TARGET_INTERVAL, f);
-  $('preview').innerHTML = days > 0
+  const sub = getChip('substance'), fr = getChip('frequency'), f = +fr, e = $('end-date').value;
+  const done = [sub, fr, getChip('duration'), e];
+  document.querySelectorAll('.q[data-step]').forEach(q => {
+    const lock = !done.slice(0, +q.dataset.step - 1).every(Boolean);
+    q.classList.toggle('locked', lock);
+    q.toggleAttribute('inert', lock);
+  });
+  const a = ASK[sub] || ASK.none;
+  $('q-freq').textContent = '2. ' + a.freq;
+  $('q-dur').textContent = '3. ' + a.dur;
+
+  const startMs = editing ? +new Date(plan.start) : Date.now();
+  const days = e ? Math.ceil((+parseDate(e) - startMs) / DAY) : 0;
+  $('until').textContent = !e ? '' : days >= 1 ? `Это через ${plural(days, 'день', 'дня', 'дней')}` : 'Выбери дату позже начала.';
+  $('save-plan').disabled = !(done.every(Boolean) && days >= 1);
+
+  const ok = f > 0 && days >= 1, T = Math.max(TARGET_INTERVAL, f);
+  $('preview-box').classList.toggle('hidden', !ok);
+  $('preview').innerHTML = ok
     ? [['Сейчас', f], ['Посередине', (f + T) / 2], ['К концу', T]]
         .map(([l, v]) => `<span><b>${fmtInterval(v)}</b>${l}</span>`).join('')
     : '';
@@ -220,14 +231,14 @@ function render() {
     const left = sessionEnd - now;
     if (left <= 0) return finishSession();
     $('big').textContent = fmt(left);
-    $('caption').textContent = L().going;
-    btn.textContent = L().stop;
+    $('caption').textContent = LABEL.going;
+    btn.textContent = LABEL.stop;
     btn.classList.add('stop');
     setRing(left / (plan.duration * MIN));
     return;
   }
 
-  btn.textContent = L().start;
+  btn.textContent = LABEL.start;
   const nextAt = plan.lastVapeTime ? +new Date(plan.lastVapeTime) + interval * MIN : 0;
   const wait = nextAt - now;
   if (wait <= 0) {
@@ -237,7 +248,7 @@ function render() {
     setRing(1);
   } else {
     $('big').textContent = fmt(wait);
-    $('caption').textContent = L().next;
+    $('caption').textContent = LABEL.next;
     setRing(1 - wait / (interval * MIN));
   }
 }
@@ -268,17 +279,9 @@ async function relapse() {
 }
 
 async function savePlan() {
-  const sStr = $('start-date').value, eStr = $('end-date').value;
-  if (!sStr || !eStr) return toast('Выбери срок или укажи обе даты');
-
-  const now = new Date(), today = dateStr(now);
-  const sameStart = editing && sStr === dateStr(new Date(plan.start));
-  if (sStr < today && !sameStart) return toast('Дата начала не может быть в прошлом');
-
-  const start = sameStart ? new Date(plan.start) : sStr === today ? now : parseDate(sStr);
-  const end = parseDate(eStr);
-  if (end <= start) return toast('Дата окончания должна быть позже начала');
-
+  const start = editing ? new Date(plan.start) : new Date();
+  const end = parseDate($('end-date').value);
+  if (end <= start) return toast('Дата отказа должна быть позже начала');
   plan = {
     ...(editing ? plan : {}),
     substance: getChip('substance'),
@@ -367,11 +370,9 @@ document.querySelectorAll('.chips').forEach(g => g.onclick = e => {
   const b = e.target.closest('button');
   if (!b) return;
   setChip(g.dataset.name, b.dataset.v);
-  if (g.dataset.name === 'substance') setChip('duration', DEFAULT_DUR[b.dataset.v]);
   updatePreview();
 });
-document.querySelectorAll('.speeds button').forEach(b => b.onclick = () => setWeeks(+b.dataset.weeks));
-['start-date', 'end-date'].forEach(id => $(id).addEventListener('input', updatePreview));
+$('end-date').addEventListener('input', updatePreview);
 $('vape-btn').onclick = () => sessionEnd ? finishSession() : startSession();
 $('relapse').onclick = relapse;
 $('edit').onclick = () => openForm(true);
