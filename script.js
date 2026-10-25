@@ -1,37 +1,63 @@
-const API_KEY = '$2a$10$x64cmBVcoKyTf.0mDg7lJePkx.fG5KXYzOGshiFyICAzw9nvEKYla';
-const BASE_URL = 'https://api.jsonbin.io/v3/b';
+const API_URL = 'https://gewseee--6d662ceed07a11f194b21607ee4eb77e.web.val.run';   // адрес твоего val в Val Town
 const MIN = 60000, DAY = 86400000;
 const TARGET_INTERVAL = 1440;   // к дате отказа пауза между сеансами растёт до суток
 const RING = 603.2;             // длина окружности кольца (2π·96)
 
 const $ = id => document.getElementById(id);
-let binId = localStorage.getItem('binId');
-let plan = null;
+const readJSON = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+
+let code = localStorage.getItem('syncCode');
+let plan = readJSON('plan');
+let dirty = localStorage.getItem('dirty') === '1';
 let sessionEnd = Number(localStorage.getItem('sessionEnd')) || 0;
 let editing = false;
 
-/* ---------- API ---------- */
+/* ---------- Синхронизация ---------- */
 async function api(method, body) {
-  const url = `${BASE_URL}/${binId}${method === 'GET' ? '/latest' : ''}`;
-  const res = await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-    body: body ? JSON.stringify(body) : undefined
-  });
-  if (!res.ok) throw new Error(`Ошибка сервера ${res.status}`);
-  return method === 'GET' ? (await res.json()).record : res.json();
+  const headers = { Authorization: 'Bearer ' + code, 'Content-Type': 'application/json' };
+  const invite = sessionStorage.getItem('invite');
+  if (invite) headers['X-Invite'] = invite;
+  const res = await fetch(API_URL, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  if (!res.ok) throw Object.assign(new Error('Ошибка сервера ' + res.status), { status: res.status });
+  return res.json();
 }
 
+function markDirty(v) {
+  dirty = v;
+  v ? localStorage.setItem('dirty', '1') : localStorage.removeItem('dirty');
+}
+
+// Сначала сохраняем на устройстве — приложение работает и без сети.
 async function save() {
-  try { await api('PUT', plan); }
-  catch (e) { toast('Не удалось сохранить: ' + e.message); }
+  localStorage.setItem('plan', JSON.stringify(plan));
+  markDirty(true);
+  await sync();
+}
+
+// Есть несохранённые правки — отправляем, иначе забираем свежую версию с сервера.
+async function sync() {
+  if (!code) return;
+  try {
+    if (dirty && isValid(plan)) {
+      await api('PUT', { plan });
+      markDirty(false);
+    } else {
+      const r = await api('GET');
+      if (r.plan) { plan = r.plan; localStorage.setItem('plan', JSON.stringify(plan)); }
+    }
+  } catch (e) {
+    if (e.status === 403) {
+      const v = prompt('Нужен пароль регистрации — спроси его у администратора:');
+      if (v) { sessionStorage.setItem('invite', v.trim()); return sync(); }
+    } else if (e.status === 401) toast('Код синхронизации выглядит неверно');
+    else toast('Нет связи — данные сохранены на устройстве');
+  }
 }
 
 /* ---------- Логика плана ---------- */
 const isValid = p => p && p.frequency > 0 && p.duration > 0 && p.start && p.end;
 
 // Пауза зависит только от времени: линейно растёт от исходной до суток к дате отказа.
-// Ничего не накапливается — срывы и правка плана пересчитываются сами.
 function intervalAt(p, now) {
   const start = +new Date(p.start), end = +new Date(p.end);
   const k = Math.min(1, Math.max(0, (now - start) / (end - start)));
@@ -73,6 +99,18 @@ function toast(text) {
   toast.t = setTimeout(() => t.classList.remove('show'), 3200);
 }
 
+function visibleSection() {
+  return ['login', 'form', 'plan', 'tips'].find(s => !$(s).classList.contains('hidden'));
+}
+
+// Решаем, какой экран показать по текущему состоянию.
+function route() {
+  const cur = visibleSection();
+  if (!code) return show('login');
+  if (!isValid(plan)) { if (cur !== 'form') openForm(false); return; }
+  if (cur === 'login' || (cur === 'form' && !editing)) { show('plan'); render(); }
+}
+
 function openForm(isEdit) {
   editing = isEdit;
   const today = dateStr(new Date());
@@ -84,6 +122,7 @@ function openForm(isEdit) {
   $('start-date').value = isEdit ? dateStr(new Date(plan.start)) : today;
   $('end-date').value = isEdit ? dateStr(new Date(plan.end)) : '';
   $('start-date').min = isEdit ? '' : today;
+  isEdit ? updatePreview() : setWeeks(4);
   show('form');
 }
 
@@ -97,11 +136,12 @@ function render() {
   banner.classList.add('hidden');
   ring.classList.remove('ready');
   btn.classList.remove('stop');
+  $('cravings').textContent = plan.cravings || 0;
 
   const total = end - start;
   $('progress').textContent = Math.round(Math.min(1, Math.max(0, (now - start) / total)) * 100) + '%';
 
-  if (now < start) {                                   // курс ещё не начался
+  if (now < start) {
     $('big').textContent = fmt(start - now);
     $('caption').textContent = 'до старта курса';
     $('days-left').textContent = plural(Math.ceil(total / DAY), 'день', 'дня', 'дней');
@@ -109,7 +149,7 @@ function render() {
     setRing(0); btn.classList.add('hidden');
     return;
   }
-  if (now >= end) {                                    // курс пройден
+  if (now >= end) {
     $('big').textContent = '🌿';
     $('caption').textContent = 'курс завершён';
     banner.textContent = 'Ты дошёл до конца. Теперь пауза — целые сутки и дальше.';
@@ -125,7 +165,7 @@ function render() {
   $('days-left').textContent = plural(Math.ceil((end - now) / DAY), 'день', 'дня', 'дней');
   $('interval').textContent = fmtInterval(interval);
 
-  if (sessionEnd) {                                    // идёт сеанс
+  if (sessionEnd) {
     const left = sessionEnd - now;
     if (left <= 0) return finishSession();
     $('big').textContent = fmt(left);
@@ -200,26 +240,89 @@ async function savePlan() {
   await save();
 }
 
-/* ---------- Вход ---------- */
-async function login(id) {
-  binId = id;
-  try {
-    plan = await api('GET');
-  } catch (e) {
-    toast('Не удалось загрузить: ' + e.message);
-    return show('login');
-  }
-  localStorage.setItem('binId', binId);
-  if (isValid(plan)) { show('plan'); render(); }
-  else { plan = null; openForm(false); }
+/* ---------- Пресеты и предпросмотр ---------- */
+const PRESET_NOTES = {
+  2: 'Быстро: паузы растут круто. Тяжелее, зато короче. Подойдёт, если привычка лёгкая.',
+  4: 'Спокойно: золотая середина, к паузам привыкаешь постепенно.',
+  8: 'Мягко: самый плавный путь. Хорош, если уже срывался или тянет часто.'
+};
+
+function setWeeks(w) {
+  const d = parseDate($('start-date').value || dateStr(new Date()));
+  d.setDate(d.getDate() + w * 7);
+  $('end-date').value = dateStr(d);
+  updatePreview();
+}
+
+function updatePreview() {
+  const s = $('start-date').value, e = $('end-date').value, f = +$('frequency').value;
+  const days = s && e ? Math.round((parseDate(e) - parseDate(s)) / DAY) : 0;
+  document.querySelectorAll('#presets button')
+    .forEach(b => b.classList.toggle('on', +b.dataset.weeks * 7 === days));
+  $('preset-note').textContent = days > 0
+    ? PRESET_NOTES[days / 7] || 'Свои даты: чем длиннее срок, тем мягче растут паузы.'
+    : 'Выбери дату окончания или готовый вариант выше.';
+  const T = Math.max(TARGET_INTERVAL, f);
+  $('preview').innerHTML = days > 0
+    ? [['В начале', f], ['Посередине', (f + T) / 2], ['В конце', T]]
+        .map(([l, v]) => `<span><b>${fmtInterval(v)}</b>${l}</span>`).join('')
+    : '';
+}
+
+/* ---------- Тяга: дыхание на 10 минут ---------- */
+let sosTimer = null, sosEnd = 0;
+
+function openSos() {
+  sosEnd = Date.now() + 10 * MIN;
+  $('sos').classList.remove('hidden');
+  clearInterval(sosTimer);
+  sosTimer = setInterval(() => {
+    const left = sosEnd - Date.now(), t = 10 * MIN - left;
+    if (left <= 0) return closeSos(true);
+    $('sos-text').textContent = t % 10000 < 4000 ? 'Вдох' : 'Выдох';
+    $('sos-time').textContent = fmt(left);
+  }, 200);
+}
+
+async function closeSos(won) {
+  clearInterval(sosTimer);
+  $('sos').classList.add('hidden');
+  if (!won) return;
+  plan.cravings = (plan.cravings || 0) + 1;
+  render();
+  toast('Ты справился. Это победа.');
+  await save();
+}
+
+/* ---------- Вход по коду ---------- */
+async function setCode(c) {
+  code = c; plan = null;
+  localStorage.setItem('syncCode', c);
+  localStorage.removeItem('plan');
+  markDirty(false);
+  await sync();
+  route();
 }
 
 $('login-btn').onclick = () => {
-  const id = $('sync-code').value.trim();
-  id ? login(id) : toast('Введи ID');
+  const c = $('sync-code').value.trim().toLowerCase();
+  /^[a-f0-9]{32}$/.test(c) ? setCode(c) : toast('Код — 32 символа: цифры и буквы a–f');
 };
 $('sync-code').onkeydown = e => e.key === 'Enter' && $('login-btn').click();
-$('logout').onclick = () => { localStorage.removeItem('binId'); binId = plan = null; show('login'); };
+$('new-btn').onclick = () => {
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  setCode([...b].map(x => x.toString(16).padStart(2, '0')).join(''));
+};
+$('code-btn').onclick = () => {
+  navigator.clipboard?.writeText(code);
+  toast('Код скопирован. Сохрани его: ' + code);
+};
+$('logout').onclick = () => {
+  if (!confirm('Выйти? Без кода синхронизации вернуться не получится.\nТвой код: ' + code)) return;
+  ['syncCode', 'plan', 'dirty', 'sessionEnd'].forEach(k => localStorage.removeItem(k));
+  code = plan = null; dirty = false; sessionEnd = 0;
+  show('login');
+};
 $('vape-btn').onclick = () => sessionEnd ? finishSession() : startSession();
 $('relapse').onclick = relapse;
 $('edit').onclick = () => openForm(true);
@@ -227,6 +330,20 @@ $('save-plan').onclick = savePlan;
 $('cancel-edit').onclick = () => { show('plan'); render(); };
 $('tips-btn').onclick = () => show('tips');
 $('back').onclick = () => { show('plan'); render(); };
+$('sos-btn').onclick = openSos;
+$('sos-done').onclick = () => closeSos(true);
+$('sos-close').onclick = () => closeSos(false);
+['frequency', 'start-date', 'end-date'].forEach(id => $(id).addEventListener('input', updatePreview));
+document.querySelectorAll('#presets button').forEach(b => b.onclick = () => setWeeks(+b.dataset.weeks));
 
 setInterval(() => { if (!$('plan').classList.contains('hidden')) render(); }, 1000);
-binId ? login(binId) : show('login');
+// Вернулся на вкладку или появилась сеть — подтягиваем изменения с других устройств.
+const resync = async () => { if (document.visibilityState !== 'hidden') { await sync(); route(); render(); } };
+document.addEventListener('visibilitychange', resync);
+window.addEventListener('online', resync);
+
+(async () => {
+  route();
+  await sync();
+  route();
+})();
