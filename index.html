@@ -70,7 +70,7 @@
       <input type="date" id="end-date">
       <p class="hint" id="until"></p>
     </div>
-    <div class="q hidden" id="preview-box"><h3>Так будут расти паузы</h3><div class="preview" id="preview"></div></div>
+    <div class="q hidden" id="preview-box"><h3>Как будет расти пауза</h3><div class="preview" id="preview"></div></div>
     <div class="row">
       <button class="primary" id="save-plan" disabled>Создать план</button>
       <button class="ghost hidden" id="cancel-edit">Отмена</button>
@@ -98,7 +98,7 @@
       <div><dt>Осталось</dt><dd id="days-left">–</dd></div>
       <div><dt>Пройдено</dt><dd id="progress">–</dd></div>
       <div><dt>Пауза сейчас</dt><dd id="interval">–</dd></div>
-      <div><dt>Тяга побеждена</dt><dd id="cravings">0</dd></div>
+      <div><dt>Пауза выросла</dt><dd id="grow">+0 мин</dd></div>
     </dl>
     <div class="row"><button class="primary" id="vape-btn">Начать</button></div>
     <div class="row"><button class="sos" id="sos-btn">Тянет прямо сейчас</button></div>
@@ -131,6 +131,12 @@
   <p class="hint">Сначала минута дыхания, потом простые шаги. Нажми «Мне лучше», когда отпустит.</p>
   <button class="primary" id="sos-done">Мне лучше</button>
   <button class="link" id="sos-close">Закрыть</button>
+</div>
+<div id="dialog" class="scrim hidden">
+  <div class="modal">
+    <p id="dialog-text"></p>
+    <div class="row"><button class="primary" id="dialog-ok">Да</button><button class="ghost" id="dialog-no">Отмена</button></div>
+  </div>
 </div>
 <div id="toast" role="status"></div>
 <script src="script.js"></script>
