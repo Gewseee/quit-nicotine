@@ -1,6 +1,5 @@
 const API_URL = 'https://gewseee--6d662ceed07a11f194b21607ee4eb77e.web.val.run';   // адрес твоего val в Val Town
 const MIN = 60000, DAY = 86400000;
-const TARGET_INTERVAL = 1440;   // к дате отказа пауза между разами растёт до суток
 const RING = 603.2;             // длина окружности кольца (2π·96)
 const SCREENS = ['login', 'keys', 'form', 'plan', 'tips'];
 const LABEL = { start: 'Начать приём', stop: 'Закончить приём', going: 'идёт приём', next: 'до следующего приёма' };
@@ -28,7 +27,7 @@ let code = localStorage.getItem('syncCode');
 let plan = readJSON('plan');
 let dirty = localStorage.getItem('dirty') === '1';
 let sessionEnd = Number(localStorage.getItem('sessionEnd')) || 0;
-let editing = false, keysFirst = false;
+let editing = false, keysFirst = false, offline = false;
 
 /* ---------- Синхронизация ---------- */
 async function api(method, body) {
@@ -63,24 +62,25 @@ async function sync() {
       const r = await api('GET');
       if (r.plan) { plan = r.plan; localStorage.setItem('plan', JSON.stringify(plan)); }
     }
+    offline = false;
   } catch (e) {
     if (e.status === 403) {
       const v = prompt('Нужен пароль регистрации — спроси его у администратора:');
       if (v) { sessionStorage.setItem('invite', v.trim()); return sync(); }
     } else if (e.status === 401) toast('Код входа выглядит неверно');
-    else toast('Нет связи — данные сохранены на устройстве');
+    else if (!offline) { offline = true; toast('Нет связи — данные сохранены на устройстве'); }
   }
 }
 
 /* ---------- Логика плана ---------- */
 const isValid = p => p && p.frequency > 0 && p.duration > 0 && p.start && p.end;
 
-// Пауза зависит только от времени: линейно растёт от исходной до суток к дате отказа.
-function intervalAt(p, now) {
-  const start = +new Date(p.start), end = +new Date(p.end);
-  const k = Math.min(1, Math.max(0, (now - start) / (end - start)));
-  return p.frequency + (Math.max(TARGET_INTERVAL, p.frequency) - p.frequency) * k;
-}
+// Пауза растёт с каждым приёмом: исходная + число приёмов × шаг (шаг не меньше минуты).
+// Срыв сдвигает дату окончания, но шаг не меняет — поэтому relapses вычитаем.
+const baseDays = p => Math.max(1, Math.round((+new Date(p.end) - +new Date(p.start)) / DAY) - (p.relapses || 0));
+const stepOf = p => Math.max(1, p.frequency / baseDays(p));
+const intervalOf = p => p.frequency + (p.sessions || 0) * stepOf(p);
+const waitLeft = () => plan.lastVapeTime ? +new Date(plan.lastVapeTime) + intervalOf(plan) * MIN - Date.now() : 0;
 
 const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const dateStr = d => new Date(+d - d.getTimezoneOffset() * MIN).toISOString().slice(0, 10);
@@ -103,6 +103,18 @@ function fmtInterval(min) {
   return m >= 120 ? `${Math.round(m / 60)} ч` : `${m} мин`;
 }
 
+// Своё окно подтверждения вместо системного.
+function ask(text, ok = 'Да') {
+  return new Promise(res => {
+    $('dialog-text').textContent = text;
+    $('dialog-ok').textContent = ok;
+    $('dialog').classList.remove('hidden');
+    const done = v => { $('dialog').classList.add('hidden'); res(v); };
+    $('dialog-ok').onclick = () => done(true);
+    $('dialog-no').onclick = () => done(false);
+  });
+}
+
 /* ---------- Экраны ---------- */
 function show(id) {
   SCREENS.forEach(s => $(s).classList.toggle('hidden', s !== id));
@@ -115,7 +127,7 @@ function toast(text) {
   t.textContent = text;
   t.classList.add('show');
   clearTimeout(toast.t);
-  toast.t = setTimeout(() => t.classList.remove('show'), 3200);
+  toast.t = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
 const visibleSection = () => SCREENS.find(s => !$(s).classList.contains('hidden'));
@@ -180,11 +192,11 @@ function updatePreview() {
   $('until').textContent = !e ? '' : days >= 1 ? `Это через ${plural(days, 'день', 'дня', 'дней')}` : 'Выбери дату позже начала.';
   $('save-plan').disabled = !(done.every(Boolean) && days >= 1);
 
-  const ok = f > 0 && days >= 1, T = Math.max(TARGET_INTERVAL, f);
+  const ok = f > 0 && days >= 1, step = Math.max(1, f / days);
   $('preview-box').classList.toggle('hidden', !ok);
   $('preview').innerHTML = ok
-    ? [['Сейчас', f], ['Посередине', (f + T) / 2], ['К концу', T]]
-        .map(([l, v]) => `<span><b>${fmtInterval(v)}</b>${l}</span>`).join('')
+    ? [[fmtInterval(f), 'Сейчас'], ['+' + fmtInterval(step), 'за каждый приём'], [fmtInterval(f + 100 * step), 'после 100 приёмов']]
+        .map(([v, l]) => `<span><b>${v}</b>${l}</span>`).join('')
     : '';
 }
 
@@ -198,7 +210,7 @@ function render() {
   banner.classList.add('hidden');
   ring.classList.remove('ready');
   btn.classList.remove('stop');
-  $('cravings').textContent = plan.cravings || 0;
+  $('grow').textContent = '+' + fmtInterval(intervalOf(plan) - plan.frequency);
 
   const total = end - start;
   $('progress').textContent = Math.round(Math.min(1, Math.max(0, (now - start) / total)) * 100) + '%';
@@ -223,7 +235,7 @@ function render() {
   }
 
   btn.classList.remove('hidden');
-  const interval = intervalAt(plan, now);
+  const interval = intervalOf(plan);
   $('days-left').textContent = plural(Math.ceil((end - now) / DAY), 'день', 'дня', 'дней');
   $('interval').textContent = fmtInterval(interval);
 
@@ -239,8 +251,7 @@ function render() {
   }
 
   btn.textContent = LABEL.start;
-  const nextAt = plan.lastVapeTime ? +new Date(plan.lastVapeTime) + interval * MIN : 0;
-  const wait = nextAt - now;
+  const wait = waitLeft();
   if (wait <= 0) {
     $('big').textContent = 'Можно';
     $('caption').textContent = 'но можно и подождать';
@@ -270,7 +281,7 @@ async function finishSession() {
 }
 
 async function relapse() {
-  if (!confirm('Ты сорвался? К плану добавится один день.')) return;
+  if (!await ask('Отметить срыв? Конец плана сдвинется на один день.', 'Да, отметить')) return;
   plan.end = new Date(+new Date(plan.end) + DAY).toISOString();
   plan.relapses = (plan.relapses || 0) + 1;
   render();
@@ -321,7 +332,7 @@ async function closeSos(won) {
   if (!won) return;
   plan.cravings = (plan.cravings || 0) + 1;
   render();
-  toast('Ты справился. Это победа.');
+  toast(plan.cravings > 1 ? `Переждал тягу. Это уже ${plan.cravings}-й раз.` : 'Переждал тягу. Это победа.');
   await save();
 }
 
@@ -354,12 +365,14 @@ $('new-btn').onclick = () => {
 $('copy-code').onclick = async () => {
   $('code-box').select();
   try { await navigator.clipboard.writeText(code); } catch { document.execCommand('copy'); }
-  toast('Код скопирован');
+  const btn = $('copy-code');
+  btn.textContent = 'Скопировано ✓';
+  setTimeout(() => btn.textContent = 'Скопировать код', 1800);
 };
 $('keys-done').onclick = () => { show('plan'); route(); render(); };
 $('sync-link').onclick = () => showKeys(false);
-$('logout').onclick = () => {
-  if (!confirm('Выйти? Без кода входа вернуться не получится.\nТвой код: ' + code)) return;
+$('logout').onclick = async () => {
+  if (!await ask('Выйти? Без кода входа вернуться не получится.\nТвой код: ' + code, 'Выйти')) return;
   ['syncCode', 'plan', 'dirty', 'sessionEnd'].forEach(k => localStorage.removeItem(k));
   code = plan = null; dirty = false; sessionEnd = 0;
   show('login');
@@ -373,7 +386,16 @@ document.querySelectorAll('.chips').forEach(g => g.onclick = e => {
   updatePreview();
 });
 $('end-date').addEventListener('input', updatePreview);
-$('vape-btn').onclick = () => sessionEnd ? finishSession() : startSession();
+$('vape-btn').onclick = async () => {
+  if (sessionEnd) {
+    const next = fmtInterval(intervalOf(plan) + stepOf(plan));
+    if (await ask(`Закончить приём? Следующая пауза будет ${next}.`, 'Закончить')) finishSession();
+    return;
+  }
+  const w = waitLeft();
+  const early = w > 0 ? `Пауза ещё не прошла: осталось ${fmt(w)}. ` : '';
+  if (await ask(`${early}Начать приём? После него пауза станет длиннее на ${fmtInterval(stepOf(plan))}.`, 'Начать')) startSession();
+};
 $('relapse').onclick = relapse;
 $('edit').onclick = () => openForm(true);
 $('save-plan').onclick = savePlan;
