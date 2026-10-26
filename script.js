@@ -20,6 +20,7 @@ const SOS_STEPS = [
   'Пожуй жвачку или съешь что-нибудь.'
 ];
 
+const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const $ = id => document.getElementById(id);
 const readJSON = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
@@ -28,6 +29,7 @@ let plan = readJSON('plan');
 let dirty = localStorage.getItem('dirty') === '1';
 let sessionEnd = Number(localStorage.getItem('sessionEnd')) || 0;
 let editing = false, keysFirst = false, offline = false;
+let calMin = new Date(), calMonth = new Date();   // первая доступная дата и показанный месяц
 
 /* ---------- Синхронизация ---------- */
 async function api(method, body) {
@@ -160,7 +162,7 @@ function openForm(isEdit) {
   $('form-lead').classList.toggle('hidden', isEdit);
   $('save-plan').textContent = isEdit ? 'Сохранить' : 'Создать план';
   $('cancel-edit').classList.toggle('hidden', !isEdit);
-  $('end-date').min = isEdit ? '' : dateStr(new Date(Date.now() + DAY));
+  calMin = parseDate(dateStr(new Date(isEdit ? +new Date(plan.start) + DAY : Date.now() + DAY)));
   if (isEdit) {
     setChip('substance', plan.substance || 'vape');
     setChip('frequency', plan.frequency);
@@ -170,6 +172,9 @@ function openForm(isEdit) {
     ['substance', 'frequency', 'duration'].forEach(clearChip);
     $('end-date').value = '';
   }
+  const chosen = $('end-date').value ? parseDate($('end-date').value) : calMin;
+  calMonth = new Date(chosen.getFullYear(), chosen.getMonth(), 1);
+  renderCal();
   updatePreview();
   show('form');
 }
@@ -198,6 +203,21 @@ function updatePreview() {
     ? [[fmtInterval(f), 'Сейчас'], ['+' + fmtInterval(step), 'за каждый приём'], [fmtInterval(f + 100 * step), 'после 100 приёмов']]
         .map(([v, l]) => `<span><b>${v}</b>${l}</span>`).join('')
     : '';
+}
+
+/* ---------- Календарь ---------- */
+function renderCal() {
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  $('cal-title').textContent = `${MONTHS[m]} ${y}`;
+  const offset = (new Date(y, m, 1).getDay() + 6) % 7, count = new Date(y, m + 1, 0).getDate();
+  const sel = $('end-date').value, today = dateStr(new Date());
+  let html = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(d => `<i>${d}</i>`).join('') + '<span></span>'.repeat(offset);
+  for (let d = 1; d <= count; d++) {
+    const dt = new Date(y, m, d), ds = dateStr(dt);
+    html += `<button type="button" data-d="${ds}" class="${ds === sel ? 'on' : ''} ${ds === today ? 'today' : ''}"${dt < calMin ? ' disabled' : ''}>${d}</button>`;
+  }
+  $('cal-grid').innerHTML = html;
+  $('cal-prev').disabled = new Date(y, m, 1) <= new Date(calMin.getFullYear(), calMin.getMonth(), 1);
 }
 
 /* ---------- Отрисовка плана (раз в секунду) ---------- */
@@ -385,7 +405,15 @@ document.querySelectorAll('.chips').forEach(g => g.onclick = e => {
   setChip(g.dataset.name, b.dataset.v);
   updatePreview();
 });
-$('end-date').addEventListener('input', updatePreview);
+$('cal-grid').onclick = e => {
+  const d = e.target.closest('button[data-d]');
+  if (!d || d.disabled) return;
+  $('end-date').value = d.dataset.d;
+  renderCal();
+  updatePreview();
+};
+$('cal-prev').onclick = () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCal(); };
+$('cal-next').onclick = () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCal(); };
 $('vape-btn').onclick = async () => {
   if (sessionEnd) {
     const next = fmtInterval(intervalOf(plan) + stepOf(plan));
