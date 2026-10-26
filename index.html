@@ -67,7 +67,15 @@
       </div>
     </div>
     <div class="q locked" data-step="4"><h3>4. К какой дате хочешь бросить?</h3>
-      <input type="date" id="end-date">
+      <input type="hidden" id="end-date">
+      <div class="cal">
+        <div class="cal-head">
+          <button type="button" class="cal-nav" id="cal-prev" aria-label="Прошлый месяц">‹</button>
+          <b id="cal-title"></b>
+          <button type="button" class="cal-nav" id="cal-next" aria-label="Следующий месяц">›</button>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
       <p class="hint" id="until"></p>
     </div>
     <div class="q hidden" id="preview-box"><h3>Как будет расти пауза</h3><div class="preview" id="preview"></div></div>
