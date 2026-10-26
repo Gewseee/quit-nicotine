@@ -162,14 +162,14 @@ function setChip(n, v) {
 
 const clearChip = n => chip(n).querySelectorAll('button').forEach(b => b.classList.remove('on'));
 
-// Форма всегда пустая: «Заново» — это новый план с нуля, а не правка условий.
+// Форма всегда пустая: «Изменить план» начинает отсчёт заново, чтобы не делать себе поблажек.
 function openForm(isEdit) {
   editing = isEdit;   // true — форма открыта поверх действующего плана
-  $('form-title').textContent = isEdit ? 'Начать заново' : 'Настроим план';
+  $('form-title').textContent = isEdit ? 'Изменить план' : 'Настроим план';
   $('form-lead').textContent = isEdit
-    ? 'Прогресс обнулится: пауза начнётся с самого начала.'
+    ? 'Новый план начинает отсчёт заново: прогресс и паузы обнулятся.'
     : 'Отвечай по порядку: следующие вопросы откроются после выбора.';
-  $('save-plan').textContent = isEdit ? 'Начать заново' : 'Создать план';
+  $('save-plan').textContent = isEdit ? 'Сохранить новый план' : 'Создать план';
   $('cancel-edit').classList.toggle('hidden', !isEdit);
   calMin = parseDate(dateStr(new Date(Date.now() + DAY)));
   ['substance', 'frequency', 'duration'].forEach(clearChip);
@@ -430,7 +430,7 @@ $('vape-btn').onclick = async () => {
 };
 $('relapse').onclick = relapse;
 $('edit').onclick = async () => {
-  if (await ask('Начать заново? Текущий прогресс обнулится, пауза вернётся к исходной.', 'Начать заново')) openForm(true);
+  if (await ask('Изменить план? Отсчёт начнётся заново: прогресс обнулится, пауза вернётся к исходной.', 'Изменить')) openForm(true);
 };
 $('save-plan').onclick = savePlan;
 $('cancel-edit').onclick = () => { show('plan'); render(); };
