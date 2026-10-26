@@ -77,11 +77,14 @@ async function sync() {
 /* ---------- Логика плана ---------- */
 const isValid = p => p && p.frequency > 0 && p.duration > 0 && p.start && p.end;
 
-// Пауза растёт с каждым приёмом: исходная + число приёмов × шаг (шаг не меньше минуты).
+// Пауза растёт с каждым приёмом. Шаг подобран так, чтобы при соблюдении пауз она доросла
+// до суток ровно к дате отказа: рост идёт как I² = I₀² + 2·шаг·t, где t — время бодрствования.
 // Срыв сдвигает дату окончания, но шаг не меняет — поэтому relapses вычитаем.
-const baseDays = p => Math.max(1, Math.round((+new Date(p.end) - +new Date(p.start)) / DAY) - (p.relapses || 0));
-const stepOf = p => Math.max(1, p.frequency / baseDays(p));
-const intervalOf = p => p.frequency + (p.sessions || 0) * stepOf(p);
+const GOAL = 1440, WAKE = 960;   // цель — сутки; 16 часов бодрствования в сутки
+const baseDays = p => Math.max(1, Math.ceil((+new Date(p.end) - +new Date(p.start)) / DAY) - (p.relapses || 0));
+const stepFor = (f, days) => (GOAL ** 2 - Math.min(f, GOAL) ** 2) / (2 * days * WAKE);
+const stepOf = p => stepFor(p.frequency, baseDays(p));
+const intervalOf = p => Math.min(Math.max(GOAL, p.frequency), p.frequency + (p.sessions || 0) * stepOf(p));
 const waitLeft = () => plan.lastVapeTime ? +new Date(plan.lastVapeTime) + intervalOf(plan) * MIN - Date.now() : 0;
 
 const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -104,6 +107,9 @@ function fmtInterval(min) {
   const m = Math.round(min);
   return m >= 120 ? `${Math.round(m / 60)} ч` : `${m} мин`;
 }
+
+// Шаг показываем с десятыми, пока он мал: «+1,5 мин», а не «+1».
+const fmtStep = m => m >= 10 ? `${Math.round(m)} мин` : `${m.toFixed(1).replace('.', ',')} мин`;
 
 // Своё окно подтверждения вместо системного.
 function ask(text, ok = 'Да') {
@@ -156,22 +162,18 @@ function setChip(n, v) {
 
 const clearChip = n => chip(n).querySelectorAll('button').forEach(b => b.classList.remove('on'));
 
+// Форма всегда пустая: «Заново» — это новый план с нуля, а не правка условий.
 function openForm(isEdit) {
-  editing = isEdit;
-  $('form-title').textContent = isEdit ? 'Изменить план' : 'Настроим план';
-  $('form-lead').classList.toggle('hidden', isEdit);
-  $('save-plan').textContent = isEdit ? 'Сохранить' : 'Создать план';
+  editing = isEdit;   // true — форма открыта поверх действующего плана
+  $('form-title').textContent = isEdit ? 'Начать заново' : 'Настроим план';
+  $('form-lead').textContent = isEdit
+    ? 'Прогресс обнулится: пауза начнётся с самого начала.'
+    : 'Отвечай по порядку: следующие вопросы откроются после выбора.';
+  $('save-plan').textContent = isEdit ? 'Начать заново' : 'Создать план';
   $('cancel-edit').classList.toggle('hidden', !isEdit);
-  calMin = parseDate(dateStr(new Date(isEdit ? +new Date(plan.start) + DAY : Date.now() + DAY)));
-  if (isEdit) {
-    setChip('substance', plan.substance || 'vape');
-    setChip('frequency', plan.frequency);
-    setChip('duration', plan.duration);
-    $('end-date').value = dateStr(new Date(plan.end));
-  } else {
-    ['substance', 'frequency', 'duration'].forEach(clearChip);
-    $('end-date').value = '';
-  }
+  calMin = parseDate(dateStr(new Date(Date.now() + DAY)));
+  ['substance', 'frequency', 'duration'].forEach(clearChip);
+  $('end-date').value = '';
   const chosen = $('end-date').value ? parseDate($('end-date').value) : calMin;
   calMonth = new Date(chosen.getFullYear(), chosen.getMonth(), 1);
   renderCal();
@@ -192,15 +194,15 @@ function updatePreview() {
   $('q-freq').textContent = '2. ' + a.freq;
   $('q-dur').textContent = '3. ' + a.dur;
 
-  const startMs = editing ? +new Date(plan.start) : Date.now();
+  const startMs = Date.now();
   const days = e ? Math.ceil((+parseDate(e) - startMs) / DAY) : 0;
   $('until').textContent = !e ? '' : days >= 1 ? `Это через ${plural(days, 'день', 'дня', 'дней')}` : 'Выбери дату позже начала.';
   $('save-plan').disabled = !(done.every(Boolean) && days >= 1);
 
-  const ok = f > 0 && days >= 1, step = Math.max(1, f / days);
+  const ok = f > 0 && days >= 1, step = stepFor(f, days);
   $('preview-box').classList.toggle('hidden', !ok);
   $('preview').innerHTML = ok
-    ? [[fmtInterval(f), 'Сейчас'], ['+' + fmtInterval(step), 'за каждый приём'], [fmtInterval(f + 100 * step), 'после 100 приёмов']]
+    ? [[fmtInterval(f), 'Сейчас'], ['+' + fmtStep(step), 'за каждый приём'], ['24 ч', 'к дате отказа']]
         .map(([v, l]) => `<span><b>${v}</b>${l}</span>`).join('')
     : '';
 }
@@ -310,18 +312,20 @@ async function relapse() {
 }
 
 async function savePlan() {
-  const start = editing ? new Date(plan.start) : new Date();
+  const start = new Date();
   const end = parseDate($('end-date').value);
   if (end <= start) return toast('Дата отказа должна быть позже начала');
   plan = {
-    ...(editing ? plan : {}),
     substance: getChip('substance'),
     frequency: +getChip('frequency'),
     duration: +getChip('duration'),
     start: start.toISOString(),
     end: end.toISOString(),
-    lastVapeTime: editing ? plan.lastVapeTime : null
+    lastVapeTime: null, sessions: 0, relapses: 0, cravings: 0
   };
+  editing = false;
+  sessionEnd = 0;
+  localStorage.removeItem('sessionEnd');
   show('plan'); render();
   await save();
 }
@@ -422,10 +426,12 @@ $('vape-btn').onclick = async () => {
   }
   const w = waitLeft();
   const early = w > 0 ? `Пауза ещё не прошла: осталось ${fmt(w)}. ` : '';
-  if (await ask(`${early}Начать приём? После него пауза станет длиннее на ${fmtInterval(stepOf(plan))}.`, 'Начать')) startSession();
+  if (await ask(`${early}Начать приём? После него пауза станет длиннее на ${fmtStep(stepOf(plan))}.`, 'Начать')) startSession();
 };
 $('relapse').onclick = relapse;
-$('edit').onclick = () => openForm(true);
+$('edit').onclick = async () => {
+  if (await ask('Начать заново? Текущий прогресс обнулится, пауза вернётся к исходной.', 'Начать заново')) openForm(true);
+};
 $('save-plan').onclick = savePlan;
 $('cancel-edit').onclick = () => { show('plan'); render(); };
 $('tips-btn').onclick = () => show('tips');
